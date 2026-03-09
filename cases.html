@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SCOTUS Sankey: Issue Area → Case Origin → Decade</title>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+
+<style>
+  @font-face {
+    font-family: "Benton";
+    src: url("Benton Sans/Benton Sans Book.otf");
+  }
+  @font-face {
+    font-family: "BentonStrong";
+    src: url("Benton Sans/Benton Sans Bold.otf");
+  }
+
+  :root {
+    --bg: #ffffff;
+    --text: #111111;
+    --muted: #666666;
+    --line: #dddddd;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Benton", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 18px 18px 28px;
+  }
+
+  h1 {
+    margin: 0 0 6px 0;
+    font-family: "BentonStrong", sans-serif;
+    font-size: 28px;
+    line-height: 1.1;
+    letter-spacing: 0.2px;
+  }
+
+  .source-link {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+  }
+
+  .source-link a {
+    color: #007194;
+    text-decoration: none;
+  }
+
+  .source-link a:hover {
+    text-decoration: underline;
+  }
+
+  .sub {
+    margin: 0 0 14px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .meta {
+    margin: 0 0 14px 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .chart-wrap {
+    position: relative;
+    overflow: hidden;
+    background: white;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .node text {
+    font-size: 12px;
+    fill: var(--text);
+    pointer-events: none;
+  }
+
+  .link {
+    fill: none;
+    stroke-opacity: .5;
+    transition: stroke-opacity 120ms ease, opacity 120ms ease, stroke-width 120ms ease;
+  }
+
+  .link.dim {
+    opacity: .2;
+  }
+
+  .node.dim rect,
+  .node.dim text {
+    opacity: 0.08;
+  }
+
+  .tooltip {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    background: rgba(255,255,255,0.98);
+    border: 1px solid rgba(0,0,0,.18);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+    box-shadow: 0 8px 24px rgba(0,0,0,.10);
+    max-width: 340px;
+    transform: translateY(4px);
+    transition: opacity 120ms ease, transform 120ms ease;
+  }
+
+  .tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .stage-label {
+    font-size: 11px;
+    fill: #666;
+  }
+
+  .cases-panel {
+    margin-top: 16px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .cases-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  #casesTitle {
+    font-family: "BentonStrong", sans-serif;
+    font-size: 14px;
+  }
+
+  .cases-count {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  #clearPinnedBtn {
+    font: inherit;
+    font-size: 11px;
+    padding: 4px 8px;
+    border: 1px solid #111;
+    background: white;
+    cursor: pointer;
+  }
+
+  #clearPinnedBtn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .cases-table-wrap {
+    max-height: 260px;
+    overflow: auto;
+    border: 1px solid var(--line);
+  }
+
+  .cases-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .cases-table th,
+  .cases-table td {
+    padding: 4px 6px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #eeeeee;
+  }
+
+  .cases-table thead th {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+    font-family: "BentonStrong", sans-serif;
+  }
+
+  .cases-table td {
+    word-break: break-word;
+  }
+
+  .cases-table tbody tr:hover {
+    background: rgba(0,0,0,0.03);
+  }
+  .cases-table th:nth-child(1) { width: 60px; }   /* Year */
+.cases-table th:nth-child(2) { width: 300px; }  /* Case */
+.cases-table th:nth-child(3) { width: 0px; }   /* Docket */
+.cases-table th:nth-child(4) { width: 100px; }  /* Issue */
+.cases-table th:nth-child(5) { width: 150px; }  /* Issue Area */
+.cases-table th:nth-child(6) { width: 260px; }  /* Actual Court */
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Supreme Court Case Flows</h1>
+  <p class="source-link">
+    <a href="http://scdb.wustl.edu/documentation.php?var=jurisdiction" target="_blank" rel="noopener noreferrer">
+      SCDB documentation
+    </a>
+  </p>
+  <p class="sub">Issue Area → Case Origin → Decade</p>
+  <div class="meta" id="meta"></div>
+
+  <div class="chart-wrap" id="chartWrap">
+    <svg id="chart"></svg>
+    <div id="tooltip" class="tooltip"></div>
+  </div>
+
+  <div class="cases-panel">
+    <div class="cases-header">
+      <div id="casesTitle">Cases</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div id="casesCount" class="cases-count"></div>
+        <button id="clearPinnedBtn" type="button">Clear Table</button>
+      </div>
+    </div>
+    <div id="casesTableWrap" class="cases-table-wrap">
+      <table class="cases-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Case</th>
+            <th>Docket</th>
+            <th>Issue</th>
+            <th>Issue Area</th>
+            <th>Actual Court</th>
+          </tr>
+        </thead>
+        <tbody id="casesTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   CONFIG
+========================= */
+const CONFIG = {
+  DATA_PATH: "SCDB_2025_01_caseCentered_Citation.csv",
+  ISSUE_AREA_PATH: "issue_area.csv",
+  ISSUE_PATH: "issue.csv",
+  CASE_ORIGIN_PATH: "case_origin_with_type.csv",
+
+  WIDTH: 1000,
+  HEIGHT: 500,
+  MARGIN: { top: 28, right: 24, bottom: 12, left: 24 },
+
+  NODE_WIDTH: 14,
+  NODE_PADDING: 8,
+
+  UNKNOWN_ISSUE_LABEL: "Unknown issue area",
+  UNKNOWN_ISSUE_DETAIL_LABEL: "Unknown issue",
+  UNKNOWN_ORIGIN_LABEL: "Unknown case origin",
+  UNKNOWN_ORIGIN_TYPE_LABEL: "Unknown court type",
+  UNKNOWN_DECADE_LABEL: "Unknown decade",
+
+  COLORS: {
+    issue: "#007194",
+    origin: "#FFCF01",
+    decade: "#ED1C24",
+    default: "#bdbdbd"
+  }
+};
+
+/* =========================
+   STATE
+========================= */
+let MASTER_ROWS = [];
+let ISSUE_AREA_MAP = new Map();
+let ISSUE_CODE_MAP = new Map();
+let ORIGIN_NAME_MAP = new Map();
+let ORIGIN_TYPE_MAP = new Map();
+let PINNED = null;
+
+const svg = d3.select("#chart");
+const tooltip = d3.select("#tooltip");
+const meta = d3.select("#meta");
+const chartWrap = d3.select("#chartWrap");
+
+const casesTitle = d3.select("#casesTitle");
+const casesCount = d3.select("#casesCount");
+const casesTbody = d3.select("#casesTbody");
+const clearPinnedBtn = d3.select("#clearPinnedBtn");
+
+/* =========================
+   HELPERS
+========================= */
+function fmt(n) {
+  return d3.format(",")(n);
+}
+
+function normalizeCode(value) {
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function parseDecade(caseId) {
+  if (!caseId) return CONFIG.UNKNOWN_DECADE_LABEL;
+  const first = String(caseId).split("-")[0].trim();
+  const year = +first;
+  if (!Number.isFinite(year)) return CONFIG.UNKNOWN_DECADE_LABEL;
+  const decade = Math.floor(year / 10) * 10;
+  return `${decade}s`;
+}
+
+function getYear(caseId) {
+  if (!caseId) return 0;
+  const first = String(caseId).split("-")[0].trim();
+  const year = +first;
+  return Number.isFinite(year) ? year : 0;
+}
+
+function stageNodeId(stage, label) {
+  return `${stage}:::${label}`;
+}
+
+function stageColor(stage) {
+  if (stage === "issue") return CONFIG.COLORS.issue;
+  if (stage === "origin") return CONFIG.COLORS.origin;
+  if (stage === "decade") return CONFIG.COLORS.decade;
+  return CONFIG.COLORS.default;
+}
+
+function buildLookupMap(rows, keyField, valueField) {
+  const map = new Map();
+  rows.forEach(d => {
+    const key = normalizeCode(d[keyField]);
+    const value = (d[valueField] || "").trim();
+    if (key) map.set(key, value);
+  });
+  return map;
+}
+
+function buildMultiLookupMaps(rows) {
+  const nameMap = new Map();
+  const typeMap = new Map();
+
+  rows.forEach(d => {
+    const key = normalizeCode(d.case_origin_code);
+    if (!key) return;
+
+    nameMap.set(key, (d.case_origin || "").trim());
+    typeMap.set(key, (d.court_type || "").trim());
+  });
+
+  return { nameMap, typeMap };
+}
+
+function enrichCaseRow(d) {
+  const issueAreaCode = normalizeCode(d.issueArea);
+  const issueCode = normalizeCode(d.issue);
+  const originCode = normalizeCode(d.caseOrigin);
+
+  const year = +d.term || getYear(d.caseId);
+
+  return {
+    caseId: d.caseId || "",
+    docket: d.docket || "",
+    caseName: d.caseName || d.caseId || "",
+
+    year,
+
+    issueAreaCode,
+    issueAreaLabel: ISSUE_AREA_MAP.get(issueAreaCode) || CONFIG.UNKNOWN_ISSUE_LABEL,
+
+    issueCode,
+    issueLabel: ISSUE_CODE_MAP.get(issueCode) || CONFIG.UNKNOWN_ISSUE_DETAIL_LABEL,
+
+    caseOriginCode: originCode,
+    caseOriginLabel: ORIGIN_NAME_MAP.get(originCode) || CONFIG.UNKNOWN_ORIGIN_LABEL,
+    caseOriginType: ORIGIN_TYPE_MAP.get(originCode) || CONFIG.UNKNOWN_ORIGIN_TYPE_LABEL,
+
+    decadeLabel: parseDecade(d.caseId)
+  };
+}
+
+function rollupLinks(rows) {
+  const links1 = d3.rollups(
+    rows,
+    v => v.length,
+    d => d.issueAreaLabel,
+    d => d.caseOriginType
+  ).flatMap(([sourceLabel, arr]) =>
+    arr.map(([targetLabel, value]) => ({
+      source: stageNodeId("issue", sourceLabel),
+      target: stageNodeId("origin", targetLabel),
+      value,
+      stage: "issue_to_origin"
+    }))
+  );
+
+  const links2 = d3.rollups(
+    rows,
+    v => v.length,
+    d => d.caseOriginType,
+    d => d.decadeLabel
+  ).flatMap(([sourceLabel, arr]) =>
+    arr.map(([targetLabel, value]) => ({
+      source: stageNodeId("origin", sourceLabel),
+      target: stageNodeId("decade", targetLabel),
+      value,
+      stage: "origin_to_decade"
+    }))
+  );
+
+  return [...links1, ...links2];
+}
+
+function buildNodes(links) {
+  const nodeIds = Array.from(new Set(links.flatMap(d => [d.source, d.target])));
+  return nodeIds.map(id => {
+    const [stage, ...rest] = id.split(":::");
+    const label = rest.join(":::");
+    return { id, stage, label };
+  });
+}
+
+function walkForward(node, nodeIds, linkKeys) {
+  (node.sourceLinks || []).forEach(link => {
+    const key = `${link.source.id}-->${link.target.id}`;
+    linkKeys.add(key);
+
+    if (!nodeIds.has(link.target.id)) {
+      nodeIds.add(link.target.id);
+      walkForward(link.target, nodeIds, linkKeys);
+    }
+  });
+}
+
+function walkBackward(node, nodeIds, linkKeys) {
+  (node.targetLinks || []).forEach(link => {
+    const key = `${link.source.id}-->${link.target.id}`;
+    linkKeys.add(key);
+
+    if (!nodeIds.has(link.source.id)) {
+      nodeIds.add(link.source.id);
+      walkBackward(link.source, nodeIds, linkKeys);
+    }
+  });
+}
+
+function getConnectedSubgraphDirectional(startNode) {
+  const nodeIds = new Set([startNode.id]);
+  const linkKeys = new Set();
+
+  if (startNode.stage === "issue") {
+    walkForward(startNode, nodeIds, linkKeys);
+  } else if (startNode.stage === "decade") {
+    walkBackward(startNode, nodeIds, linkKeys);
+  } else {
+    walkBackward(startNode, nodeIds, linkKeys);
+    walkForward(startNode, nodeIds, linkKeys);
+  }
+
+  return { nodeIds, linkKeys };
+}
+
+function showTooltip(html, event) {
+  tooltip.html(html).classed("show", true);
+
+  const tooltipNode = tooltip.node();
+  const chartBox = svg.node().getBoundingClientRect();
+
+  const tooltipWidth = tooltipNode.offsetWidth;
+  const tooltipHeight = tooltipNode.offsetHeight;
+
+  let x = event.pageX + 14;
+  let y = event.pageY + 14;
+
+  const rightEdge = chartBox.right + window.scrollX;
+  const bottomEdge = chartBox.bottom + window.scrollY;
+  const leftEdge = chartBox.left + window.scrollX;
+  const topEdge = chartBox.top + window.scrollY;
+
+  if (x + tooltipWidth > rightEdge) x = event.pageX - tooltipWidth - 14;
+  if (y + tooltipHeight > bottomEdge) y = event.pageY - tooltipHeight - 14;
+  if (x < leftEdge) x = leftEdge + 6;
+  if (y < topEdge) y = topEdge + 6;
+
+  tooltip
+    .style("left", `${x}px`)
+    .style("top", `${y}px`);
+}
+
+function hideTooltip() {
+  tooltip.classed("show", false);
+}
+
+function clearCasesTable() {
+  casesTitle.text("Cases");
+  casesCount.text("");
+  casesTbody.html("");
+}
+
+function renderCasesTable(rows, titleText) {
+  const sorted = rows
+    .slice()
+    .sort((a, b) =>
+      d3.ascending(a.year, b.year) ||
+      d3.ascending(a.caseName, b.caseName)
+    );
+
+  casesTitle.text(titleText);
+  casesCount.text(`${fmt(sorted.length)} case${sorted.length === 1 ? "" : "s"}`);
+
+  const tr = casesTbody
+    .html("")
+    .selectAll("tr")
+    .data(sorted)
+    .join("tr");
+
+  tr.append("td").text(d => d.year || "");
+  tr.append("td").text(d => d.caseName);
+  tr.append("td").text(d => d.docket);
+  tr.append("td").text(d => d.issueLabel);
+  tr.append("td").text(d => d.issueAreaLabel);
+  tr.append("td").text(d => d.caseOriginLabel);
+}
+
+function getCasesForLink(sourceNode, targetNode) {
+  if (sourceNode.stage === "issue" && targetNode.stage === "origin") {
+    return MASTER_ROWS.filter(d =>
+      d.issueAreaLabel === sourceNode.label &&
+      d.caseOriginType === targetNode.label
+    );
+  }
+
+  if (sourceNode.stage === "origin" && targetNode.stage === "decade") {
+    return MASTER_ROWS.filter(d =>
+      d.caseOriginType === sourceNode.label &&
+      d.decadeLabel === targetNode.label
+    );
+  }
+
+  return [];
+}
+
+function getCasesForNode(node) {
+  if (node.stage === "issue") {
+    return MASTER_ROWS.filter(d => d.issueAreaLabel === node.label);
+  }
+
+  if (node.stage === "origin") {
+    return MASTER_ROWS.filter(d => d.caseOriginType === node.label);
+  }
+
+  if (node.stage === "decade") {
+    return MASTER_ROWS.filter(d => d.decadeLabel === node.label);
+  }
+
+  return [];
+}
+
+function setPinned(payload) {
+  PINNED = payload;
+  clearPinnedBtn.property("disabled", false);
+}
+
+function clearPinned() {
+  PINNED = null;
+  clearPinnedBtn.property("disabled", true);
+}
+
+function samePinned(a, b) {
+  if (!a || !b) return false;
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "node") return a.id === b.id;
+  if (a.kind === "link") return a.key === b.key;
+  return false;
+}
+
+/* =========================
+   RENDER
+========================= */
+function render() {
+  const links = rollupLinks(MASTER_ROWS);
+  const nodes = buildNodes(links);
+
+  meta.text(`${fmt(MASTER_ROWS.length)} cases • ${fmt(nodes.length)} nodes • ${fmt(links.length)} links`);
+
+  svg.selectAll("*").remove();
+
+  const width = CONFIG.WIDTH;
+  const height = CONFIG.HEIGHT;
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+  const innerW = width - CONFIG.MARGIN.left - CONFIG.MARGIN.right;
+  const innerH = height - CONFIG.MARGIN.top - CONFIG.MARGIN.bottom;
+
+  const g = svg.append("g")
+    .attr("transform", `translate(${CONFIG.MARGIN.left},${CONFIG.MARGIN.top})`);
+
+  const sankey = d3.sankey()
+    .nodeId(d => d.id)
+    .nodeWidth(CONFIG.NODE_WIDTH)
+    .nodePadding(CONFIG.NODE_PADDING)
+    .nodeAlign(d3.sankeyJustify)
+    .nodeSort(null)
+    .extent([[0, 10], [innerW, innerH]]);
+
+  const graph = sankey({
+    nodes: nodes.map(d => ({ ...d })),
+    links: links.map(d => ({ ...d }))
+  });
+
+  const link = g.append("g")
+    .selectAll("path")
+    .data(graph.links)
+    .join("path")
+    .attr("class", "link")
+    .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke", d => {
+      const sourceStage = d.source.stage || (d.source.id || "").split(":::")[0];
+      return stageColor(sourceStage);
+    })
+    .attr("stroke-width", d => Math.max(1, d.width))
+    .attr("stroke-opacity", 0.6)
+   .on("mouseenter", (event, d) => {
+
+  /* dim everything */
+  link
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", l => Math.max(1, l.width));
+
+  /* highlight hovered link */
+  d3.select(event.currentTarget)
+
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", Math.max(2, d.width * 1.2));
+
+  const rows = getCasesForLink(d.source, d.target);
+
+  showTooltip(
+    `<strong>${d.source.label}</strong> → <strong>${d.target.label}</strong><br>${fmt(d.value)} cases`,
+    event
+  );
+
+  if (!PINNED) {
+    renderCasesTable(rows, `${d.source.label} → ${d.target.label}`);
+  }
+})
+    .on("mousemove", (event, d) => {
+      showTooltip(
+        `<strong>${d.source.label}</strong> → <strong>${d.target.label}</strong><br>${fmt(d.value)} cases`,
+        event
+      );
+    })
+    .on("mouseleave", () => {
+      link
+        .attr("stroke-opacity", 0.16)
+        .attr("stroke-width", d => Math.max(1, d.width));
+      hideTooltip();
+    })
+    .on("click", (event, d) => {
+      event.stopPropagation();
+
+      const payload = {
+        kind: "link",
+        key: `${d.source.id}-->${d.target.id}`,
+        title: `${d.source.label} → ${d.target.label}`,
+        rows: getCasesForLink(d.source, d.target)
+      };
+
+      if (samePinned(PINNED, payload)) {
+        clearPinned();
+        clearCasesTable();
+        return;
+      }
+
+      setPinned(payload);
+      renderCasesTable(payload.rows, `${payload.title} (pinned)`);
+    });
+
+  const node = g.append("g")
+    .selectAll("g")
+    .data(graph.nodes)
+    .join("g")
+    .attr("class", "node")
+    .on("mouseenter", function(event, d) {
+      const connected = getConnectedSubgraphDirectional(d);
+
+      node.classed("dim", n => !connected.nodeIds.has(n.id));
+
+      link
+        .classed("dim", l => {
+          const key = `${l.source.id}-->${l.target.id}`;
+          return !connected.linkKeys.has(key);
+        })
+        .attr("stroke-opacity", l => {
+          const key = `${l.source.id}-->${l.target.id}`;
+          return connected.linkKeys.has(key) ? 0.95 : 0.015;
+        })
+        .attr("stroke-width", l => {
+          const key = `${l.source.id}-->${l.target.id}`;
+          return connected.linkKeys.has(key) ? Math.max(1.5, l.width * 1.1) : Math.max(1, l.width);
+        });
+
+      const incoming = d.targetLinks ? d3.sum(d.targetLinks, l => l.value) : 0;
+      const outgoing = d.sourceLinks ? d3.sum(d.sourceLinks, l => l.value) : 0;
+      const total = Math.max(incoming, outgoing);
+
+      showTooltip(
+        `<strong>${d.label}</strong><br>` +
+        `Stage: ${d.stage}<br>` +
+        `Total flow: ${fmt(total)} cases`,
+        event
+      );
+
+      const rows = getCasesForNode(d);
+      if (!PINNED) {
+        renderCasesTable(rows, d.label);
+      }
+    })
+    .on("mousemove", (event, d) => {
+      const incoming = d.targetLinks ? d3.sum(d.targetLinks, l => l.value) : 0;
+      const outgoing = d.sourceLinks ? d3.sum(d.sourceLinks, l => l.value) : 0;
+      const total = Math.max(incoming, outgoing);
+
+      showTooltip(
+        `<strong>${d.label}</strong><br>` +
+        `Stage: ${d.stage}<br>` +
+        `Total flow: ${fmt(total)} cases`,
+        event
+      );
+    })
+    .on("mouseleave", () => {
+      node.classed("dim", false);
+
+      link
+        .classed("dim", false)
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", d => Math.max(1, d.width));
+
+      hideTooltip();
+    })
+    .on("click", function(event, d) {
+      event.stopPropagation();
+
+      const payload = {
+        kind: "node",
+        id: d.id,
+        title: d.label,
+        rows: getCasesForNode(d)
+      };
+
+      if (samePinned(PINNED, payload)) {
+        clearPinned();
+        clearCasesTable();
+        return;
+      }
+
+      setPinned(payload);
+      renderCasesTable(payload.rows, `${payload.title} (pinned)`);
+    });
+
+  node.append("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("height", d => Math.max(1, d.y1 - d.y0))
+    .attr("width", d => d.x1 - d.x0)
+    .attr("fill", d => stageColor(d.stage));
+
+  node.append("text")
+    .attr("x", d => d.x0 < innerW / 2 ? d.x1 + 6 : d.x0 - 6)
+    .attr("y", d => (d.y0 + d.y1) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", d => d.x0 < innerW / 2 ? "start" : "end")
+    .text(d => d.label);
+
+  const stageLabels = [
+    { label: "Issue Area", x: 0, anchor: "start" },
+    { label: "Case Origin", x: innerW / 2, anchor: "middle" },
+    { label: "Decade", x: innerW, anchor: "end" }
+  ];
+
+  g.append("g")
+    .selectAll("text")
+    .data(stageLabels)
+    .join("text")
+    .attr("class", "stage-label")
+    .attr("x", d => d.x)
+    .attr("y", 0)
+    .attr("text-anchor", d => d.anchor)
+    .text(d => d.label);
+}
+
+/* =========================
+   INIT
+========================= */
+async function init() {
+  const [
+    issueAreaRows,
+    issueRows,
+    originRows,
+    mainRows
+  ] = await Promise.all([
+    d3.csv(CONFIG.ISSUE_AREA_PATH),
+    d3.csv(CONFIG.ISSUE_PATH),
+    d3.csv(CONFIG.CASE_ORIGIN_PATH),
+    d3.csv(CONFIG.DATA_PATH)
+  ]);
+
+  ISSUE_AREA_MAP = buildLookupMap(issueAreaRows, "issue_area_code", "issue_area");
+  ISSUE_CODE_MAP = buildLookupMap(issueRows, "issue_code", "issue");
+
+  const originMaps = buildMultiLookupMaps(originRows);
+  ORIGIN_NAME_MAP = originMaps.nameMap;
+  ORIGIN_TYPE_MAP = originMaps.typeMap;
+
+  MASTER_ROWS = mainRows
+    .sort((a, b) => getYear(a.caseId) - getYear(b.caseId))
+    .map(enrichCaseRow);
+
+  clearPinnedBtn.property("disabled", true);
+  clearPinnedBtn.on("click", () => {
+    clearPinned();
+    clearCasesTable();
+  });
+
+  render();
+  clearCasesTable();
+}
+
+chartWrap.on("mouseleave", () => {
+  if (!PINNED) {
+    clearCasesTable();
+  }
+});
+
+chartWrap.on("click", (event) => {
+  if (event.target.tagName.toLowerCase() === "svg") {
+    clearPinned();
+    clearCasesTable();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

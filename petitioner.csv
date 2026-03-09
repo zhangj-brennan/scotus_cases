@@ -1,0 +1,273 @@
+petitioner_code,petitioner
+1,attorney general of the United States or office
+2,state board or department of education
+3,city town township village borough government
+4,state commission board committee authority
+5,county government unit
+6,court or judicial district
+7,state department or agency
+8,government employee or job applicant
+9,female governmental employee or applicant
+10,minority governmental employee or applicant
+11,minority female governmental employee
+12,other governmental agency
+13,retired or former governmental employee
+14,U.S. House of Representatives
+15,interstate compact
+16,judge
+17,state legislature or committee
+18,local governmental unit
+19,governmental official
+20,state or U.S. supreme court
+21,local school district or board
+22,U.S. Senate
+23,U.S. senator
+24,foreign nation
+25,state or local taxpayer
+26,state college or university
+27,United States
+28,state government
+100,person accused of crime
+101,advertising business
+102,agent fiduciary trustee executor
+103,airplane manufacturer
+104,airline
+105,alcohol distributor importer exporter
+106,alien or denaturalization subject
+107,American Medical Association
+108,National Railroad Passenger Corporation
+109,amusement establishment
+110,arrested person or detainee
+111,attorney or law firm
+112,author copyright holder
+113,bank savings loan credit union
+114,bankrupt business or person
+115,liquor establishment
+116,water transportation company
+117,bookstore newsstand publisher
+118,brewery distillery
+119,broker investment securities firm
+120,construction industry
+121,bus passenger transportation
+122,business corporation
+123,buyer purchaser
+124,cable television company
+125,car dealer
+126,person convicted of crime
+127,tangible property
+128,chemical company
+129,child or children
+130,religious organization
+131,private club
+132,coal company
+133,computer business or manufacturer
+134,consumer or consumer organization
+135,creditor finance company
+136,mentally incompetent defendant
+137,defendant
+138,debtor
+139,real estate developer
+140,disabled person
+141,distributor
+142,selective service registrant
+143,drug manufacturer
+144,pharmacist pharmacy
+145,employee or job applicant
+146,employee benefit trust
+147,electric equipment manufacturer
+148,electric or gas utility
+149,charitable institution
+150,environmental organization
+151,employer
+152,farmer farm worker
+153,father
+154,female employee
+155,female
+156,movie theater production
+157,fishing company
+158,food processing company
+159,foreign private entity
+160,franchiser
+161,franchisee
+162,LGBT individual or organization
+163,guarantor
+164,handicapped individual
+165,health organization clinic
+166,heir beneficiary
+167,hospital
+168,husband or ex husband
+169,mental patient
+170,Indian tribe or individual
+171,insurance company
+172,inventor patent holder
+173,investor
+174,injured person non employment
+175,juvenile
+176,government contractor
+177,license holder applicant
+178,magazine
+179,male
+180,medical claimant
+181,medical supply company
+182,racial minority employee
+183,minoritiy female employee
+184,manufacturer
+185,business executive officer
+186,military personnel
+187,mining company
+188,mother
+189,auto manufacturer
+190,newspaper news service
+191,radio television network
+192,nonprofit organization
+193,nonresident
+194,nuclear power facility
+195,landowner landlord
+196,shareholders tender offer
+197,tender offer
+198,oil or gas company
+199,elderly person organization
+200,out of state defendant
+201,political action committee
+202,parent or parents
+203,parking service
+204,patient
+205,telecommunications company
+206,physician or dentist
+207,public interest organization
+208,physically injured person
+209,pipeline company
+210,package luggage container
+211,political candidate party activist
+212,indigent welfare recipient
+213,indigent defendant
+214,private person
+215,prisoner inmate
+216,professional organization
+217,probationer parolee
+218,protester demonstrator
+219,public utility
+220,publisher
+221,radio station
+222,racial minority
+223,anti discrimination protester
+224,minority student applicant
+225,realtor
+226,journalist news media
+227,resident
+228,restaurant food vendor
+229,mentally incompetent person
+230,retired employee
+231,railroad
+232,private educational institution
+233,seller vendor
+234,shipper importer exporter
+235,shopping center
+236,spouse
+237,stockholder shareholder
+238,retail business
+239,student applicant
+240,federal taxpayer
+241,tenant lessee
+242,theater studio
+243,logging lumber company
+244,person traveling abroad
+245,trucking company
+246,television station
+247,union member
+248,unemployed claimant
+249,labor union
+250,veteran
+251,voter elector
+252,wholesale trade
+253,wife or ex wife
+254,witness
+255,network
+256,slave
+257,slave owner
+258,Bank of the United States
+259,timber company
+260,U.S. job applicants employees
+301,Army and Air Force Exchange Service
+302,Atomic Energy Commission
+303,U.S. Air Force
+304,Department of Agriculture
+305,Alien Property Custodian
+306,U.S. Army
+307,Board of Immigration Appeals
+308,Bureau of Indian Affairs
+310,Bonneville Power Administration
+311,Benefits Review Board
+312,Civil Aeronautics Board
+313,Bureau of the Census
+314,Central Intelligence Agency
+315,Commodity Futures Trading Commission
+316,Department of Commerce
+317,Comptroller of Currency
+318,Consumer Product Safety Commission
+319,Civil Rights Commission
+320,Civil Service Commission
+321,Customs Service
+322,Defense Base Closure Commission
+323,Drug Enforcement Agency
+324,Department of Defense
+325,Department of Energy
+326,Department of the Interior
+327,Department of Justice
+328,Department of State
+329,Department of Transportation
+330,Department of Education
+332,Equal Employment Opportunity Commission
+333,Environmental Protection Agency
+334,Federal Aviation Administration
+335,Federal Bureau of Investigation
+336,Federal Bureau of Prisons
+337,Farm Credit Administration
+338,Federal Communications Commission
+339,Federal Credit Union Administration
+340,Food and Drug Administration
+341,Federal Deposit Insurance Corporation
+343,Federal Election Commission
+344,Federal Energy Regulatory Commission
+345,Federal Housing Administration
+346,Federal Home Loan Bank Board
+347,Federal Labor Relations Authority
+349,Federal Maritime Commission
+350,Farmers Home Administration
+351,Federal Parole Board
+352,Federal Power Commission
+353,Federal Railroad Administration
+354,Federal Reserve Board
+355,Federal Reserve System
+357,Federal Trade Commission
+359,General Accounting Office
+360,Comptroller General
+361,General Services Administration
+362,Department of Health Education and Welfare
+363,Department of Health and Human Services
+364,Department of Housing and Urban Development
+366,Interstate Commerce Commission
+368,Immigration and Naturalization Service
+369,Internal Revenue Service
+371,Department of Labor
+373,Legal Services Corporation
+376,National Aeronautics and Space Administration
+382,National Labor Relations Board
+385,Nuclear Regulatory Commission
+388,Office of Management and Budget
+390,Office of Personnel Management
+391,Occupational Safety and Health Administration
+394,Patent Office
+396,Pension Benefit Guaranty Corporation
+405,Securities and Exchange Commission
+406,Social Security Administration
+407,Selective Service System
+408,Department of the Treasury
+409,Tennessee Valley Authority
+412,United States Postal Service
+414,Veterans Administration
+418,Transportation Security Administration
+419,Surface Transportation Board
+422,Department of Homeland Security
+501,Unidentifiable
+600,International entity

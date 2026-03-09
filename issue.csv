@@ -1,0 +1,87 @@
+issue_code,issue
+10010,Search and seizure
+10020,Confessions
+10030,Right to counsel
+10040,Lineups
+10050,Self-incrimination
+10060,Double jeopardy
+10070,Speedy trial
+10080,Cruel and unusual punishment
+10090,Death penalty
+10100,Habeas corpus
+10110,Bail
+10120,Pretrial detention
+10130,Sentencing
+10140,Plea bargaining
+10150,Trial procedure
+10160,Grand jury
+10170,Prosecutorial conduct
+10180,Right to jury trial
+10190,Judicial conduct
+10200,Evidence
+20010,Race discrimination
+20020,Gender discrimination
+20030,Age discrimination
+20040,Alienage discrimination
+20050,Voting
+20060,Reapportionment
+20070,Affirmative action
+20080,Employment discrimination
+20090,Housing discrimination
+20100,Public accommodations
+30010,Freedom of speech
+30020,Freedom of press
+30030,Commercial speech
+30040,Symbolic speech
+30050,Obscenity
+30060,Religion establishment clause
+30070,Religion free exercise
+30080,Freedom of association
+30090,Right to assemble
+30100,Right to petition
+40010,Procedural due process
+40020,Substantive due process
+40030,Administrative due process
+40040,Retroactivity
+40050,Vagueness
+40060,Right to privacy
+50010,Abortion
+50020,Contraception
+50030,Family relations
+50040,Sexual behavior
+50050,Personal autonomy
+60010,Attorney discipline
+60020,Attorney fees
+60030,Legal malpractice
+60040,Bar admission
+60050,Contingency fees
+70010,Union organizing
+70020,Union representation
+70030,Union dues
+70040,Collective bargaining
+70050,Strike activity
+80010,Antitrust
+80020,Bankruptcy
+80030,Securities regulation
+80040,Transportation regulation
+80050,Communications regulation
+80060,Environmental regulation
+80070,Consumer protection
+80080,Energy regulation
+80090,Agriculture regulation
+80100,Immigration regulation
+90010,Federal jurisdiction
+90020,Standing
+90030,Mootness
+90040,Ripeness
+90050,Political question doctrine
+100010,State sovereignty
+100020,Federal preemption
+100030,State taxation of federal entities
+110010,Interstate compacts
+110020,Interstate commerce disputes
+120010,Federal taxation
+120020,Tax deductions
+120030,Tax exemptions
+130010,Miscellaneous
+140010,Private cause of action
