@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Case Dots (Cluster by Issue Area or Court Type)</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    svg {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    circle {
+      fill: #000;
+      cursor: pointer;
+      transition: r 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
+    }
+
+    .overlay-box {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 20;
+      max-width: 420px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      line-height: 1.4;
+    }
+
+    .overlay-box h1 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .overlay-box p {
+      margin: 0 0 12px 0;
+      font-size: 13px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #000;
+      background: #fff;
+      color: #000;
+      font: inherit;
+      font-size: 12px;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+
+    button.active {
+      background: #000;
+      color: #fff;
+    }
+
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid #000;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.35;
+      max-width: 320px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 30;
+    }
+
+    .tooltip .label {
+      font-weight: 700;
+    }
+
+    .tooltip .case-name {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .cluster-label {
+      font-size: 12px;
+      font-weight: 700;
+      fill: #000;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: all;
+      cursor: grab;
+    }
+
+    .cluster-label.dragging {
+      cursor: grabbing;
+    }
+
+    .cluster-count {
+      font-size: 11px;
+      fill: #000;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+      opacity: 0.75;
+    }
+
+    .export-box {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 25;
+      width: 360px;
+      max-height: 70vh;
+      overflow: auto;
+      padding: 12px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      display: none;
+    }
+
+    .export-box h2 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      line-height: 1.1;
+    }
+
+    .export-box p {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .export-box textarea {
+      width: 100%;
+      min-height: 220px;
+      box-sizing: border-box;
+      border: 1px solid #000;
+      font: 12px/1.35 monospace;
+      padding: 8px;
+      resize: vertical;
+      background: #fff;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-box">
+    <h1>Supreme Court Cases</h1>
+    <p>
+      Each dot represents one case. Hover over a dot to see case details, or group them by issue area or court type.
+    </p>
+    <div class="controls">
+      <button id="issueClusterBtn">What are these cases about?</button>
+      <button id="courtClusterBtn">What courts do these cases come from?</button>
+      <button id="releaseBtn">Release to Float</button>
+    </div>
+  </div>
+
+  <div id="exportBox" class="export-box">
+    <h2>Manual cluster centers</h2>
+    <p>Drag labels while clustered. Copy these entries into <code>MANUAL_CLUSTER_POSITIONS</code>.</p>
+    <textarea id="exportText" spellcheck="false"></textarea>
+  </div>
+
+  <svg id="chart"></svg>
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    const svg = d3.select("#chart");
+    const tooltip = d3.select("#tooltip");
+    const issueClusterBtn = document.getElementById("issueClusterBtn");
+    const courtClusterBtn = document.getElementById("courtClusterBtn");
+    const releaseBtn = document.getElementById("releaseBtn");
+    const exportBox = document.getElementById("exportBox");
+    const exportText = document.getElementById("exportText");
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+    const DOT_RADIUS = 3;
+    const HOVER_RADIUS = 6;
+    const AUTO_RADIUS = 9;
+
+    const BASE_OPACITY = 0.12;
+    const ACTIVE_OPACITY = 1.0;
+
+    const SPEED = 0.25;
+    const FIELD_SCALE = 0.004;
+    const TIME_SCALE = 0.00025;
+
+    const AUTO_POPUP_DURATION = 3000;
+    const AUTO_POPUP_GAP = 300;
+    const WRAP_MARGIN = 60;
+
+    const CLUSTER_EASE = 0.2;
+    const CLUSTER_SPACING = 3;
+
+    const RELEASE_DURATION = 500;
+    const RELEASE_SPEED = 5.2;
+    const RELEASE_DAMPING = 0.1;
+
+    const DATA_PATH = "SCDB_2025_01_caseCentered_Citation.csv";
+    const ISSUE_AREA_PATH = "issue_area.csv";
+    const CASE_ORIGIN_TYPE_PATH = "case_origin_with_type.csv";
+
+    const MANUAL_CLUSTER_POSITIONS = {
+      // "Criminal Procedure": { x: 0.25, y: 0.30 },
+      // "Civil Rights": { x: 0.55, y: 0.42 },
+      // "Federal Appeals Court": { x: 0.62, y: 0.58 }
+    };
+
+    let dots = [];
+    let circles = null;
+    let labelLayer = null;
+    let autoActiveDatum = null;
+    let hoveredDatum = null;
+    let autoTimeout = null;
+    let autoRestartTimeout = null;
+    let isUserHovering = false;
+
+    let clusterMode = null; // null | "issue" | "court"
+    let clusterCenters = new Map();
+    let clusterCounts = new Map();
+
+    let issueAreaLookup = new Map();
+    let caseOriginCourtTypeLookup = new Map();
+
+    let releaseMode = false;
+    let releaseEndTime = 0;
+
+    function flowAngle(x, y, t, o1, o2) {
+      return (
+        Math.sin((x * FIELD_SCALE) + t + o1) +
+        Math.cos((y * FIELD_SCALE * 1.3) - t * 1.1 + o2) +
+        Math.sin(((x + y) * FIELD_SCALE * 0.7) + t * 0.6)
+      ) * Math.PI;
+    }
+
+    function tooltipHTML(d) {
+      return `
+        <div class="case-name">${d.caseName || ""}</div>
+        <div><span class="label">Chief:</span> ${d.chief || ""}</div>
+        <div><span class="label">Docket:</span> ${d.docket || ""}</div>
+        <div><span class="label">Issue:</span> ${d.issue || ""}</div>
+        <div><span class="label">Issue Area:</span> ${d.issueAreaLabel || d.issueArea || ""}</div>
+        <div><span class="label">Case Origin:</span> ${d.caseOrigin || ""}</div>
+        <div><span class="label">Court Type:</span> ${d.courtTypeLabel || ""}</div>
+        <div><span class="label">Case Origin State:</span> ${d.caseOriginState || ""}</div>
+      `;
+    }
+
+    function positionTooltip(x, y) {
+      const pad = 14;
+      const ttNode = tooltip.node();
+      const ttWidth = ttNode.offsetWidth;
+      const ttHeight = ttNode.offsetHeight;
+
+      let left = x + 16;
+      let top = y + 16;
+
+      if (left + ttWidth > window.innerWidth - pad) {
+        left = x - ttWidth - 16;
+      }
+
+      if (top + ttHeight > window.innerHeight - pad) {
+        top = y - ttHeight - 16;
+      }
+
+      tooltip
+        .style("left", `${Math.max(pad, left)}px`)
+        .style("top", `${Math.max(pad, top)}px`);
+    }
+
+    function showTooltipForDatum(d) {
+      tooltip.style("display", "block").html(tooltipHTML(d));
+      positionTooltip(d.x, d.y);
+    }
+
+    function hideTooltip() {
+      tooltip.style("display", "none");
+    }
+
+    function getActiveDatum() {
+      return hoveredDatum || autoActiveDatum;
+    }
+
+    function updateCircleStyles() {
+      if (!circles) return;
+
+      const activeDatum = getActiveDatum();
+
+      circles
+        .attr("r", d => {
+          if (hoveredDatum && d === hoveredDatum) return HOVER_RADIUS;
+          if (!hoveredDatum && autoActiveDatum && d === autoActiveDatum) return AUTO_RADIUS;
+          return DOT_RADIUS;
+        })
+        .attr("stroke", d => activeDatum && d === activeDatum ? "#000" : "none")
+        .attr("stroke-width", d => activeDatum && d === activeDatum ? 1.5 : 0)
+        .style("opacity", d => d === activeDatum ? ACTIVE_OPACITY : BASE_OPACITY);
+    }
+
+    function clearAutoTimers() {
+      if (autoTimeout) clearTimeout(autoTimeout);
+      if (autoRestartTimeout) clearTimeout(autoRestartTimeout);
+      autoTimeout = null;
+      autoRestartTimeout = null;
+    }
+
+    function scheduleNextAutoPopup(delay = AUTO_POPUP_GAP) {
+      if (clusterMode) return;
+      autoRestartTimeout = setTimeout(runAutoPopup, delay);
+    }
+
+    function runAutoPopup() {
+      if (!dots.length || isUserHovering || clusterMode) {
+        if (!clusterMode) scheduleNextAutoPopup(500);
+        return;
+      }
+
+      autoActiveDatum = dots[Math.floor(Math.random() * dots.length)];
+      updateCircleStyles();
+      showTooltipForDatum(autoActiveDatum);
+
+      autoTimeout = setTimeout(() => {
+        autoActiveDatum = null;
+        updateCircleStyles();
+        if (!isUserHovering) hideTooltip();
+        scheduleNextAutoPopup();
+      }, AUTO_POPUP_DURATION);
+    }
+
+    function normalizeCode(value) {
+      return String(value == null ? "" : value).trim();
+    }
+
+    function normalizeLabel(value, fallback = "Unknown") {
+      const v = String(value == null ? "" : value).trim();
+      return v === "" ? fallback : v;
+    }
+
+    function buildIssueAreaLookup(rows) {
+      issueAreaLookup = new Map();
+
+      rows.forEach(row => {
+        const code = normalizeCode(row.issue_area_code);
+        const label = normalizeLabel(row.issue_area);
+        if (code !== "") {
+          issueAreaLookup.set(code, label);
+        }
+      });
+    }
+
+    function buildCaseOriginCourtTypeLookup(rows) {
+      caseOriginCourtTypeLookup = new Map();
+
+      rows.forEach(row => {
+        const code = normalizeCode(row.case_origin_code);
+        const courtType = normalizeLabel(row.court_type);
+        if (code !== "") {
+          caseOriginCourtTypeLookup.set(code, courtType);
+        }
+      });
+    }
+
+    function getIssueAreaLabelFromCode(code) {
+      const normalized = normalizeCode(code);
+      if (normalized === "") return "Unknown";
+      return issueAreaLookup.get(normalized) || normalized;
+    }
+
+    function getCourtTypeFromCaseOriginCode(code) {
+      const normalized = normalizeCode(code);
+      if (normalized === "") return "Unknown";
+      return caseOriginCourtTypeLookup.get(normalized) || "Unknown";
+    }
+
+    function getGroupValue(d) {
+      if (clusterMode === "issue") return d.issueAreaGroup;
+      if (clusterMode === "court") return d.courtTypeGroup;
+      return null;
+    }
+
+    function updateExportBox() {
+      if (!clusterMode) {
+        exportBox.style.display = "none";
+        exportText.value = "";
+        return;
+      }
+
+      exportBox.style.display = "block";
+
+      const keys = Array.from(clusterCenters.keys()).sort(d3.ascending);
+      const lines = keys.map(key => {
+        const center = clusterCenters.get(key);
+        const x = +(center.x / width).toFixed(4);
+        const y = +(center.y / height).toFixed(4);
+        return `  ${JSON.stringify(key)}: { x: ${x}, y: ${y} }`;
+      });
+
+      exportText.value = `const MANUAL_CLUSTER_POSITIONS = {\n${lines.join(",\n")}\n};`;
+    }
+
+    function applyDraggedCenter(groupName, cx, cy) {
+      const clampedX = Math.max(0, Math.min(width, cx));
+      const clampedY = Math.max(0, Math.min(height, cy));
+
+      clusterCenters.set(groupName, { x: clampedX, y: clampedY });
+
+      const groupDots = dots.filter(d => getGroupValue(d) === groupName);
+
+      groupDots.forEach((d, j) => {
+        const angle = j * 2.399963229728653;
+        const radius = CLUSTER_SPACING * Math.sqrt(j);
+
+        d.targetX = clampedX + Math.cos(angle) * radius;
+        d.targetY = clampedY + Math.sin(angle) * radius;
+      });
+
+      if (labelLayer) {
+        const group = labelLayer.selectAll("g.cluster-label-group")
+          .filter(d => d.groupName === groupName);
+
+        group.select(".cluster-label")
+          .attr("x", clampedX)
+          .attr("y", clampedY - 7);
+
+        group.select(".cluster-count")
+          .attr("x", clampedX)
+          .attr("y", clampedY + 9);
+      }
+
+      updateExportBox();
+    }
+
+    function renderClusterLabels(groupNames) {
+      if (!labelLayer) {
+        labelLayer = svg.append("g").attr("class", "cluster-label-layer");
+      }
+
+      const labelData = groupNames.map(groupName => ({
+        groupName,
+        x: clusterCenters.get(groupName).x,
+        y: clusterCenters.get(groupName).y,
+        count: clusterCounts.get(groupName) || 0
+      }));
+
+      const groups = labelLayer
+        .selectAll("g.cluster-label-group")
+        .data(labelData, d => d.groupName);
+
+      const groupsEnter = groups
+        .enter()
+        .append("g")
+        .attr("class", "cluster-label-group");
+
+      groupsEnter.append("text").attr("class", "cluster-label");
+      groupsEnter.append("text").attr("class", "cluster-count");
+
+      const merged = groupsEnter.merge(groups);
+
+      merged.style("opacity", clusterMode ? 1 : 0);
+
+      merged
+        .select(".cluster-label")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y - 7)
+        .text(d => d.groupName);
+
+      merged
+        .select(".cluster-count")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y + 9)
+        .text(d => d3.format(",")(d.count));
+
+      merged.call(
+        d3.drag()
+          .on("start", function(event, d) {
+            if (!clusterMode) return;
+            d3.select(this).select(".cluster-label").classed("dragging", true);
+          })
+          .on("drag", function(event, d) {
+            if (!clusterMode) return;
+            applyDraggedCenter(d.groupName, event.x, event.y + 7);
+          })
+          .on("end", function() {
+            d3.select(this).select(".cluster-label").classed("dragging", false);
+          })
+      );
+
+      groups.exit().remove();
+
+      updateExportBox();
+    }
+
+    function updateClusterLabelVisibility() {
+      if (!labelLayer) return;
+      labelLayer.selectAll("g.cluster-label-group").style("opacity", clusterMode ? 1 : 0);
+      updateExportBox();
+    }
+
+    function assignClusterTargets() {
+      if (!clusterMode) {
+        updateClusterLabelVisibility();
+        return;
+      }
+
+      const grouped = d3.group(dots, d => getGroupValue(d));
+      const groupNames = Array.from(grouped.keys()).sort(d3.ascending);
+      const n = groupNames.length;
+
+      const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+      const rows = Math.max(1, Math.ceil(n / cols));
+
+      const leftPad = 140;
+      const rightPad = 140;
+      const topPad = 130;
+      const bottomPad = 90;
+
+      const usableWidth = Math.max(100, width - leftPad - rightPad);
+      const usableHeight = Math.max(100, height - topPad - bottomPad);
+
+      const cellWidth = usableWidth / cols;
+      const cellHeight = usableHeight / rows;
+
+      clusterCenters = new Map();
+      clusterCounts = new Map();
+
+      groupNames.forEach((groupName, i) => {
+        const row = Math.floor(i / cols);
+        const colInRow = i % cols;
+
+        let cx, cy;
+        const manual = MANUAL_CLUSTER_POSITIONS[groupName];
+
+        if (manual) {
+          cx = manual.x * width;
+          cy = manual.y * height;
+        } else {
+          const rowOffset = (row % 2 === 1) ? cellWidth / 2 : 0;
+
+          cx = leftPad + (colInRow + 0.5) * cellWidth + rowOffset;
+          cy = topPad + (row + 0.5) * cellHeight;
+
+          const minX = leftPad + cellWidth * 0.5;
+          const maxX = width - rightPad - cellWidth * 0.5;
+          cx = Math.max(minX, Math.min(maxX, cx));
+        }
+
+        const groupDots = grouped.get(groupName);
+
+        clusterCenters.set(groupName, { x: cx, y: cy });
+        clusterCounts.set(groupName, groupDots.length);
+
+        groupDots.forEach((d, j) => {
+          const angle = j * 2.399963229728653;
+          const radius = CLUSTER_SPACING * Math.sqrt(j);
+
+          d.targetX = cx + Math.cos(angle) * radius;
+          d.targetY = cy + Math.sin(angle) * radius;
+        });
+      });
+
+      renderClusterLabels(groupNames);
+    }
+
+    function updateButtonStates() {
+      issueClusterBtn.classList.toggle("active", clusterMode === "issue");
+      courtClusterBtn.classList.toggle("active", clusterMode === "court");
+    }
+
+    function enableClusterMode(mode) {
+      if (clusterMode === mode) return;
+
+      clusterMode = mode;
+      updateButtonStates();
+      assignClusterTargets();
+      updateClusterLabelVisibility();
+
+      clearAutoTimers();
+      autoActiveDatum = null;
+      releaseMode = false;
+      dots.forEach(d => {
+        d.vx = 0;
+        d.vy = 0;
+      });
+      hideTooltip();
+      updateCircleStyles();
+    }
+
+    function disableClusterMode() {
+      if (!clusterMode) return;
+
+      clusterMode = null;
+      updateButtonStates();
+      updateClusterLabelVisibility();
+      updateCircleStyles();
+    }
+
+    function startRelease() {
+      const priorMode = clusterMode;
+      if (!priorMode) return;
+
+      disableClusterMode();
+
+      releaseMode = true;
+      releaseEndTime = performance.now() + RELEASE_DURATION;
+
+      dots.forEach(d => {
+        const groupValue = priorMode === "issue" ? d.issueAreaGroup : d.courtTypeGroup;
+        const center = clusterCenters.get(groupValue);
+        if (!center) return;
+
+        let dx = d.x - center.x;
+        let dy = d.y - center.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 0.001) {
+          const angle = Math.random() * Math.PI * 2;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          dist = 1;
+        }
+
+        d.vx = (dx / dist) * RELEASE_SPEED;
+        d.vy = (dy / dist) * RELEASE_SPEED;
+      });
+
+      if (!isUserHovering) {
+        scheduleNextAutoPopup(1000);
+      }
+    }
+
+    Promise.all([
+      d3.csv(DATA_PATH),
+      d3.csv(ISSUE_AREA_PATH),
+      d3.csv(CASE_ORIGIN_TYPE_PATH)
+    ]).then(([rawData, issueAreaRows, caseOriginTypeRows]) => {
+      buildIssueAreaLookup(issueAreaRows);
+      buildCaseOriginCourtTypeLookup(caseOriginTypeRows);
+
+      dots = rawData.map((d, i) => ({
+        ...d,
+        id: i,
+        issueAreaLabel: getIssueAreaLabelFromCode(d.issueArea),
+        issueAreaGroup: getIssueAreaLabelFromCode(d.issueArea),
+        courtTypeLabel: getCourtTypeFromCaseOriginCode(d.caseOrigin),
+        courtTypeGroup: getCourtTypeFromCaseOriginCode(d.caseOrigin),
+        x: Math.random() * width,
+        y: Math.random() * height,
+        targetX: null,
+        targetY: null,
+        offset1: Math.random() * 1000,
+        offset2: Math.random() * 1000,
+        vx: 0,
+        vy: 0
+      }));
+
+      const dotLayer = svg.append("g").attr("class", "dot-layer");
+
+      circles = dotLayer
+        .selectAll("circle")
+        .data(dots)
+        .join("circle")
+        .attr("r", DOT_RADIUS)
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+        .style("opacity", BASE_OPACITY)
+        .on("mouseenter", function(event, d) {
+          isUserHovering = true;
+          hoveredDatum = d;
+          autoActiveDatum = null;
+          clearAutoTimers();
+          updateCircleStyles();
+
+          tooltip.style("display", "block").html(tooltipHTML(d));
+          positionTooltip(event.clientX, event.clientY);
+        })
+        .on("mousemove", function(event) {
+          positionTooltip(event.clientX, event.clientY);
+        })
+        .on("mouseleave", function() {
+          isUserHovering = false;
+          hoveredDatum = null;
+          hideTooltip();
+          updateCircleStyles();
+
+          if (!clusterMode) {
+            scheduleNextAutoPopup(500);
+          }
+        });
+
+      function tick(elapsed) {
+        const t = elapsed * TIME_SCALE;
+
+        if (releaseMode && performance.now() > releaseEndTime) {
+          releaseMode = false;
+          dots.forEach(d => {
+            d.vx = 0;
+            d.vy = 0;
+          });
+        }
+
+        dots.forEach(d => {
+          if (clusterMode) {
+            d.x += (d.targetX - d.x) * CLUSTER_EASE;
+            d.y += (d.targetY - d.y) * CLUSTER_EASE;
+          } else {
+            const a = flowAngle(d.x, d.y, t, d.offset1, d.offset2);
+
+            if (releaseMode) {
+              d.x += d.vx + Math.cos(a) * SPEED;
+              d.y += d.vy + Math.sin(a) * SPEED;
+
+              d.vx *= RELEASE_DAMPING;
+              d.vy *= RELEASE_DAMPING;
+            } else {
+              d.x += Math.cos(a) * SPEED;
+              d.y += Math.sin(a) * SPEED;
+            }
+
+            if (d.x < -WRAP_MARGIN) d.x = width + WRAP_MARGIN;
+            if (d.x > width + WRAP_MARGIN) d.x = -WRAP_MARGIN;
+            if (d.y < -WRAP_MARGIN) d.y = height + WRAP_MARGIN;
+            if (d.y > height + WRAP_MARGIN) d.y = -WRAP_MARGIN;
+          }
+        });
+
+        circles
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+
+        const activeDatum = getActiveDatum();
+        if (activeDatum && !isUserHovering && !clusterMode) {
+          positionTooltip(activeDatum.x, activeDatum.y);
+        }
+      }
+
+      updateCircleStyles();
+      d3.timer(tick);
+      scheduleNextAutoPopup(1000);
+    }).catch(error => {
+      console.error("Error loading CSV files:", error);
+    });
+
+    issueClusterBtn.addEventListener("click", () => enableClusterMode("issue"));
+    courtClusterBtn.addEventListener("click", () => enableClusterMode("court"));
+    releaseBtn.addEventListener("click", startRelease);
+
+    window.addEventListener("resize", () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      svg.attr("viewBox", `0 0 ${width} ${height}`);
+      if (dots.length && clusterMode) {
+        assignClusterTargets();
+        updateClusterLabelVisibility();
+      }
+    });
+  </script>
+</body>
+</html>

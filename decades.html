@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SCOTUS Sankey by Decade</title>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+  }
+
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  h1 {
+    margin-bottom: 10px;
+  }
+
+  #chartWrap {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+
+  .chart-block {
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+  }
+
+  .decade-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .node text {
+    font-size: 11px;
+  }
+
+  .link {
+    fill: none;
+    stroke-opacity: 0.5;
+  }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>Supreme Court Case Flows by Decade</h1>
+  <div id="chartWrap"></div>
+</div>
+
+<script>
+/* =========================
+   CONFIG
+========================= */
+const CONFIG = {
+  DATA_PATH: "SCDB_2025_01_caseCentered_Citation.csv",
+  ISSUE_AREA_PATH: "issue_area.csv",
+  CASE_ORIGIN_PATH: "case_origin_with_type.csv",
+
+  WIDTH: 900,
+  HEIGHT: 420,
+
+  NODE_WIDTH: 12,
+  NODE_PADDING: 6,
+
+  COLORS: {
+    issue: "#007194",
+    origin: "#FFCF01"
+  }
+};
+
+/* =========================
+   STATE
+========================= */
+let MASTER_ROWS = [];
+let ISSUE_AREA_MAP = new Map();
+let ORIGIN_TYPE_MAP = new Map();
+
+let ISSUE_ORDER = [];
+let ORIGIN_ORDER = [];
+
+/* =========================
+   HELPERS
+========================= */
+function normalizeCode(v) {
+  return v == null ? "" : String(v).trim();
+}
+
+function parseDecade(caseId) {
+  if (!caseId) return "Unknown";
+  const year = +String(caseId).split("-")[0];
+  if (!year) return "Unknown";
+  return Math.floor(year / 10) * 10 + "s";
+}
+
+function stageNodeId(stage, label) {
+  return stage + ":::" + label;
+}
+
+function buildLookupMap(rows, keyField, valueField) {
+  const map = new Map();
+  rows.forEach(d => {
+    map.set(normalizeCode(d[keyField]), d[valueField]);
+  });
+  return map;
+}
+
+function buildOriginTypeMap(rows) {
+  const map = new Map();
+  rows.forEach(d => {
+    map.set(normalizeCode(d.case_origin_code), d.court_type);
+  });
+  return map;
+}
+
+function enrich(d) {
+  return {
+    issueAreaLabel: ISSUE_AREA_MAP.get(normalizeCode(d.issueArea)) || "Unknown",
+    originLabel: ORIGIN_TYPE_MAP.get(normalizeCode(d.caseOrigin)) || "Unknown",
+    decade: parseDecade(d.caseId)
+  };
+}
+
+/* =========================
+   DATA TRANSFORM
+========================= */
+function rollupLinks(rows) {
+  return d3.rollups(
+    rows,
+    v => v.length,
+    d => d.issueAreaLabel,
+    d => d.originLabel
+  ).flatMap(([source, arr]) =>
+    arr.map(([target, value]) => ({
+      source: stageNodeId("issue", source),
+      target: stageNodeId("origin", target),
+      value
+    }))
+  );
+}
+
+function buildNodes(links) {
+  const ids = new Set();
+  links.forEach(l => {
+    ids.add(l.source);
+    ids.add(l.target);
+  });
+
+  return Array.from(ids).map(id => {
+    const [stage, label] = id.split(":::");
+    return { id, stage, label };
+  });
+}
+
+function groupByDecade(rows) {
+  return d3.groups(rows, d => d.decade)
+    .sort((a, b) => d3.ascending(a[0], b[0]));
+}
+
+/* =========================
+   RENDER SINGLE
+========================= */
+function renderSankey(svg, rows) {
+  const links = rollupLinks(rows);
+  const nodes = buildNodes(links);
+
+  const sankey = d3.sankey()
+    .nodeId(d => d.id)
+    .nodeWidth(CONFIG.NODE_WIDTH)
+    .nodePadding(CONFIG.NODE_PADDING)
+    .nodeAlign(d3.sankeyJustify)
+    .nodeSort((a, b) => {
+
+      // FIX LEFT SIDE (Issue Areas)
+      if (a.stage === "issue" && b.stage === "issue") {
+        return ISSUE_ORDER.indexOf(a.label) - ISSUE_ORDER.indexOf(b.label);
+      }
+
+      // FIX RIGHT SIDE (Origins)
+      if (a.stage === "origin" && b.stage === "origin") {
+        return ORIGIN_ORDER.indexOf(a.label) - ORIGIN_ORDER.indexOf(b.label);
+      }
+
+      return 0;
+    })
+    .extent([[0, 10], [CONFIG.WIDTH, CONFIG.HEIGHT]]);
+
+  const graph = sankey({
+    nodes: nodes.map(d => ({ ...d })),
+    links: links.map(d => ({ ...d }))
+  });
+
+  const g = svg.append("g");
+
+  // links
+  g.append("g")
+    .selectAll("path")
+    .data(graph.links)
+    .join("path")
+    .attr("class", "link")
+    .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke", CONFIG.COLORS.issue)
+    .attr("stroke-width", d => Math.max(1, d.width));
+
+  // nodes
+  const node = g.append("g")
+    .selectAll("g")
+    .data(graph.nodes)
+    .join("g");
+
+  node.append("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("width", d => d.x1 - d.x0)
+    .attr("height", d => d.y1 - d.y0)
+    .attr("fill", d => d.stage === "issue"
+      ? CONFIG.COLORS.issue
+      : CONFIG.COLORS.origin);
+
+  node.append("text")
+    .attr("x", d => d.x0 < CONFIG.WIDTH / 2 ? d.x1 + 6 : d.x0 - 6)
+    .attr("y", d => (d.y0 + d.y1) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", d => d.x0 < CONFIG.WIDTH / 2 ? "start" : "end")
+    .text(d => d.label);
+}
+
+/* =========================
+   RENDER ALL
+========================= */
+function renderAll() {
+  const grouped = groupByDecade(MASTER_ROWS);
+  const container = d3.select("#chartWrap");
+
+  container.html("");
+
+  grouped.forEach(([decade, rows]) => {
+    const block = container.append("div")
+      .attr("class", "chart-block");
+
+    block.append("div")
+      .attr("class", "decade-title")
+      .text(decade);
+
+    const svg = block.append("svg")
+      .attr("viewBox", `0 0 ${CONFIG.WIDTH} ${CONFIG.HEIGHT}`);
+
+    renderSankey(svg, rows);
+  });
+}
+
+/* =========================
+   INIT
+========================= */
+async function init() {
+  const [issueAreas, origins, data] = await Promise.all([
+    d3.csv(CONFIG.ISSUE_AREA_PATH),
+    d3.csv(CONFIG.CASE_ORIGIN_PATH),
+    d3.csv(CONFIG.DATA_PATH)
+  ]);
+
+  ISSUE_AREA_MAP = buildLookupMap(issueAreas, "issue_area_code", "issue_area");
+  ORIGIN_TYPE_MAP = buildOriginTypeMap(origins);
+
+  MASTER_ROWS = data.map(enrich);
+
+  // GLOBAL ORDERING (KEY ADDITION)
+  ISSUE_ORDER = Array.from(
+    d3.rollups(MASTER_ROWS, v => v.length, d => d.issueAreaLabel)
+  )
+  .sort((a, b) => d3.descending(a[1], b[1]))
+  .map(d => d[0]);
+
+  ORIGIN_ORDER = Array.from(
+    d3.rollups(MASTER_ROWS, v => v.length, d => d.originLabel)
+  )
+  .sort((a, b) => d3.descending(a[1], b[1]))
+  .map(d => d[0]);
+
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
