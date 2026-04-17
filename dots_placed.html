@@ -172,28 +172,33 @@
       background: #fff;
       color: #000;
     }
+    .search-help {
+  width: 100%;
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: 0.7;
+  margin-top: -2px;
+}
   </style>
 </head>
 <body>
   <div class="overlay-box">
-    <h1>Supreme Court Cases</h1>
+    <h1>100 Years of Supreme Court Cases</h1>
     <p>
-      Each dot represents one case. Hover over a dot to see case details, or group them by issue area, court type, or search results.
+     9000+ cases. 
     </p>
     <div class="controls">
       <input id="searchInput" class="search-input" type="text" placeholder="Search cases, issue, court, state..." />
-      <button id="issueClusterBtn">What are these cases about?</button>
+      <div class="search-help">
+  Use <b>,</b> for OR (e.g. roberts, court of appeals) and <b>+</b> for AND (e.g. roberts+court of appeals)
+</div>
+<button id="issueClusterBtn">What are these cases about?</button>
       <button id="courtClusterBtn">What courts do these cases come from?</button>
       <button id="releaseBtn">Release to Float</button>
     </div>
   </div>
 
-  <div id="exportBox" class="export-box">
-    <h2>Manual cluster centers</h2>
-    <p>Drag labels while clustered. Copy these entries into <code>MANUAL_CLUSTER_POSITIONS</code>.</p>
-    <textarea id="exportText" spellcheck="false"></textarea>
-  </div>
-
+  
   <svg id="chart"></svg>
   <div id="tooltip" class="tooltip"></div>
 
@@ -204,9 +209,7 @@
     const courtClusterBtn = document.getElementById("courtClusterBtn");
     const releaseBtn = document.getElementById("releaseBtn");
     const searchInput = document.getElementById("searchInput");
-    const exportBox = document.getElementById("exportBox");
-    const exportText = document.getElementById("exportText");
-
+ 
     let width = window.innerWidth;
     let height = window.innerHeight;
 
@@ -229,6 +232,11 @@
 
     const CLUSTER_EASE = 0.2;
     const CLUSTER_SPACING = 3;
+    const CLUSTER_RADIUS_PADDING = 40;
+    const CLUSTER_PACK_SCALE = 1.4;
+    const ISSUE_CLUSTER_SPACING = 3;
+    const COURT_CLUSTER_SPACING = 3;
+    const SEARCH_CLUSTER_SPACING = 3;
 
     const RELEASE_DURATION = 500;
     const RELEASE_SPEED = 5.2;
@@ -268,6 +276,19 @@
     let releaseMode = false;
     let releaseEndTime = 0;
     let searchTerm = "";
+
+    function getCurrentClusterSpacing() {
+  if (clusterMode === "issue") return ISSUE_CLUSTER_SPACING;
+  if (clusterMode === "court") return COURT_CLUSTER_SPACING;
+  if (clusterMode === "search") return SEARCH_CLUSTER_SPACING;
+  return CLUSTER_SPACING;
+}
+
+    function getEstimatedClusterRadius(count) {
+  // Dot layout already uses radius ~ CLUSTER_SPACING * sqrt(j),
+  // so this approximates the outer radius of the cluster.
+  return CLUSTER_SPACING * Math.sqrt(Math.max(1, count - 1)) + CLUSTER_RADIUS_PADDING;
+}
 
     function flowAngle(x, y, t, o1, o2) {
       return (
@@ -415,12 +436,37 @@
       if (normalized === "") return "Unknown";
       return caseOriginCourtTypeLookup.get(normalized) || "Unknown";
     }
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+   function getSearchValue(d) {
+  const raw = searchTerm.trim();
+  if (!raw) return null;
 
-    function getSearchValue(d) {
-      const q = searchTerm.trim();
-      if (!q) return null;
-      return d.searchText.includes(q.toLowerCase()) ? q : "Other cases";
-    }
+  const haystack = d.searchTextNormalized || "";
+
+  const orGroups = raw
+    .split(",")
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  const isMatch = orGroups.some(group => {
+    const andTerms = group
+      .split("+")
+      .map(term => normalizeSearchText(term))
+      .filter(Boolean);
+
+    if (!andTerms.length) return false;
+
+    return andTerms.every(term => haystack.includes(term));
+  });
+
+  return isMatch ? raw : "Other cases";
+}
 
     function getGroupValue(d) {
       if (clusterMode === "issue") return d.issueAreaGroup;
@@ -429,58 +475,7 @@
       return null;
     }
 
-    function updateExportBox() {
-      if (!clusterMode || clusterMode === "search") {
-        exportBox.style.display = "none";
-        exportText.value = "";
-        return;
-      }
-
-      exportBox.style.display = "block";
-
-      const keys = Array.from(clusterCenters.keys()).sort(d3.ascending);
-      const lines = keys.map(key => {
-        const center = clusterCenters.get(key);
-        const x = +(center.x / width).toFixed(4);
-        const y = +(center.y / height).toFixed(4);
-        return `  ${JSON.stringify(key)}: { x: ${x}, y: ${y} }`;
-      });
-
-      exportText.value = `const MANUAL_CLUSTER_POSITIONS = {\n${lines.join(",\n")}\n};`;
-    }
-
-    function applyDraggedCenter(groupName, cx, cy) {
-      const clampedX = Math.max(0, Math.min(width, cx));
-      const clampedY = Math.max(0, Math.min(height, cy));
-
-      clusterCenters.set(groupName, { x: clampedX, y: clampedY });
-
-      const groupDots = dots.filter(d => getGroupValue(d) === groupName);
-
-      groupDots.forEach((d, j) => {
-        const angle = j * 2.399963229728653;
-        const radius = CLUSTER_SPACING * Math.sqrt(j);
-
-        d.targetX = clampedX + Math.cos(angle) * radius;
-        d.targetY = clampedY + Math.sin(angle) * radius;
-      });
-
-      if (labelLayer) {
-        const group = labelLayer.selectAll("g.cluster-label-group")
-          .filter(d => d.groupName === groupName);
-
-        group.select(".cluster-label")
-          .attr("x", clampedX)
-          .attr("y", clampedY - 7);
-
-        group.select(".cluster-count")
-          .attr("x", clampedX)
-          .attr("y", clampedY + 9);
-      }
-
-      updateExportBox();
-    }
-
+    
     function renderClusterLabels(groupNames) {
       if (!labelLayer) {
         labelLayer = svg.append("g").attr("class", "cluster-label-layer");
@@ -521,130 +516,139 @@
         .attr("y", d => d.y + 9)
         .text(d => d3.format(",")(d.count));
 
-      merged.call(
-        d3.drag()
-          .on("start", function(event, d) {
-            if (!clusterMode || clusterMode === "search") return;
-            d3.select(this).select(".cluster-label").classed("dragging", true);
-          })
-          .on("drag", function(event, d) {
-            if (!clusterMode || clusterMode === "search") return;
-            applyDraggedCenter(d.groupName, event.x, event.y + 7);
-          })
-          .on("end", function() {
-            d3.select(this).select(".cluster-label").classed("dragging", false);
-          })
-      );
+      
 
       groups.exit().remove();
 
-      updateExportBox();
     }
 
     function updateClusterLabelVisibility() {
       if (!labelLayer) return;
       labelLayer.selectAll("g.cluster-label-group").style("opacity", clusterMode ? 1 : 0);
-      updateExportBox();
     }
 
     function assignClusterTargets() {
-      if (!clusterMode) {
-        updateClusterLabelVisibility();
-        return;
-      }
+  if (!clusterMode) {
+    updateClusterLabelVisibility();
+    return;
+  }
 
-      const grouped = d3.group(dots, d => getGroupValue(d));
-      const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
+  const grouped = d3.group(dots, d => getGroupValue(d));
+  const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
 
-      if (clusterMode === "search") {
-        clusterCenters = new Map();
-        clusterCounts = new Map();
+  // Keep your special search layout exactly as-is
+  if (clusterMode === "search") {
+    clusterCenters = new Map();
+    clusterCounts = new Map();
 
-        const matchPos = SEARCH_CLUSTER_POSITIONS.match;
-        const otherPos = SEARCH_CLUSTER_POSITIONS.other;
+    const matchPos = SEARCH_CLUSTER_POSITIONS.match;
+    const otherPos = SEARCH_CLUSTER_POSITIONS.other;
 
-        const matchX = matchPos.x * width;
-        const matchY = matchPos.y * height;
-        const otherX = otherPos.x * width;
-        const otherY = otherPos.y * height;
+    const matchX = matchPos.x * width;
+    const matchY = matchPos.y * height;
+    const otherX = otherPos.x * width;
+    const otherY = otherPos.y * height;
 
-        groupNames.forEach(groupName => {
-          const cx = groupName === searchTerm ? matchX : otherX;
-          const cy = groupName === searchTerm ? matchY : otherY;
-          const groupDots = grouped.get(groupName);
+    groupNames.forEach(groupName => {
+      const isMatchGroup = groupName === searchTerm;
+      const cx = isMatchGroup ? matchX : otherX;
+      const cy = isMatchGroup ? matchY : otherY;
+      const groupDots = grouped.get(groupName);
 
-          clusterCenters.set(groupName, { x: cx, y: cy });
-          clusterCounts.set(groupName, groupDots.length);
+      clusterCenters.set(groupName, { x: cx, y: cy });
+      clusterCounts.set(groupName, groupDots.length);
 
-          groupDots.forEach((d, j) => {
-            const angle = j * 2.399963229728653;
-            const radius = CLUSTER_SPACING * Math.sqrt(j);
-
-            d.targetX = cx + Math.cos(angle) * radius;
-            d.targetY = cy + Math.sin(angle) * radius;
-          });
-        });
-
-        renderClusterLabels(groupNames);
-        return;
-      }
-
-      const n = groupNames.length;
-
-      const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-      const rows = Math.max(1, Math.ceil(n / cols));
-
-      const leftPad = 140;
-      const rightPad = 140;
-      const topPad = 130;
-      const bottomPad = 90;
-
-      const usableWidth = Math.max(100, width - leftPad - rightPad);
-      const usableHeight = Math.max(100, height - topPad - bottomPad);
-
-      const cellWidth = usableWidth / cols;
-      const cellHeight = usableHeight / rows;
-
-      clusterCenters = new Map();
-      clusterCounts = new Map();
-
-      groupNames.forEach((groupName, i) => {
-        const row = Math.floor(i / cols);
-        const colInRow = i % cols;
-
-        let cx, cy;
-        const manual = MANUAL_CLUSTER_POSITIONS[groupName];
-
-        if (manual) {
-          cx = manual.x * width;
-          cy = manual.y * height;
-        } else {
-          const rowOffset = (row % 2 === 1) ? cellWidth / 2 : 0;
-
-          cx = leftPad + (colInRow + 0.5) * cellWidth + rowOffset;
-          cy = topPad + (row + 0.5) * cellHeight;
-
-          const minX = leftPad + cellWidth * 0.5;
-          const maxX = width - rightPad - cellWidth * 0.5;
-          cx = Math.max(minX, Math.min(maxX, cx));
-        }
-
-        const groupDots = grouped.get(groupName);
-
-        clusterCenters.set(groupName, { x: cx, y: cy });
-        clusterCounts.set(groupName, groupDots.length);
-
-        groupDots.forEach((d, j) => {
-          const angle = j * 2.399963229728653;
-          const radius = CLUSTER_SPACING * Math.sqrt(j);
-
-          d.targetX = cx + Math.cos(angle) * radius;
-          d.targetY = cy + Math.sin(angle) * radius;
-        });
+      groupDots.forEach((d, j) => {
+        const angle = j * 2.399963229728653;
+const radius = getCurrentClusterSpacing() * Math.sqrt(j);
+        d.targetX = cx + Math.cos(angle) * radius;
+        d.targetY = cy + Math.sin(angle) * radius;
       });
+    });
 
-      renderClusterLabels(groupNames);
+    renderClusterLabels(groupNames);
+    return;
+  }
+
+  clusterCenters = new Map();
+  clusterCounts = new Map();
+
+  const packedNodes = groupNames.map(groupName => {
+    const count = grouped.get(groupName).length;
+    return {
+      groupName,
+      count,
+      r: getEstimatedClusterRadius(count)
+    };
+  });
+
+  // Manual placements still win if provided
+  const manualNodes = [];
+  const autoNodes = [];
+
+  packedNodes.forEach(node => {
+    const manual = MANUAL_CLUSTER_POSITIONS[node.groupName];
+    if (manual) {
+      manualNodes.push({
+        ...node,
+        x: manual.x * width,
+        y: manual.y * height
+      });
+    } else {
+      autoNodes.push({ ...node });
     }
+  });
+
+  if (autoNodes.length) {
+    d3.packSiblings(autoNodes);
+
+    let minX = d3.min(autoNodes, d => d.x - d.r);
+    let maxX = d3.max(autoNodes, d => d.x + d.r);
+    let minY = d3.min(autoNodes, d => d.y - d.r);
+    let maxY = d3.max(autoNodes, d => d.y + d.r);
+
+    const packedWidth = Math.max(1, maxX - minX);
+    const packedHeight = Math.max(1, maxY - minY);
+
+    const padX = 80;
+    const padY = 90;
+
+    const availableWidth = Math.max(1, width - padX * 2);
+    const availableHeight = Math.max(1, height - padY * 2);
+
+    const scale = Math.min(
+      availableWidth / packedWidth,
+      availableHeight / packedHeight
+    ) * CLUSTER_PACK_SCALE;
+
+    const packedCx = (minX + maxX) / 2;
+    const packedCy = (minY + maxY) / 2;
+
+    autoNodes.forEach(node => {
+      node.x = width / 2 + (node.x - packedCx) * scale;
+      node.y = height / 2 + (node.y - packedCy) * scale;
+      node.r = node.r * scale;
+    });
+  }
+
+  const finalNodes = [...manualNodes, ...autoNodes];
+
+  finalNodes.forEach(node => {
+    clusterCenters.set(node.groupName, { x: node.x, y: node.y });
+    clusterCounts.set(node.groupName, node.count);
+
+    const groupDots = grouped.get(node.groupName);
+
+    groupDots.forEach((d, j) => {
+      const angle = j * 2.399963229728653;
+const radius = getCurrentClusterSpacing() * Math.sqrt(j);
+      d.targetX = node.x + Math.cos(angle) * radius;
+      d.targetY = node.y + Math.sin(angle) * radius;
+    });
+  });
+
+  renderClusterLabels(groupNames);
+}
 
     function updateButtonStates() {
       issueClusterBtn.classList.toggle("active", clusterMode === "issue");
@@ -757,34 +761,37 @@
         const issueAreaLabel = getIssueAreaLabelFromCode(d.issueArea);
         const courtTypeLabel = getCourtTypeFromCaseOriginCode(d.caseOrigin);
 
-        const searchText = [
-          d.caseName,
-          d.chief,
-          d.docket,
-          d.issue,
-          issueAreaLabel,
-          courtTypeLabel,
-          d.caseOrigin,
-          d.caseOriginState
-        ].filter(Boolean).join(" ").toLowerCase();
+const searchText = [
+  d.caseName,
+  d.chief,
+  d.docket,
+  d.issue,
+  issueAreaLabel,
+  courtTypeLabel,
+  d.caseOrigin,
+  d.caseOriginState
+].filter(Boolean).join(" ");
 
-        return {
-          ...d,
-          id: i,
-          issueAreaLabel,
-          issueAreaGroup: issueAreaLabel,
-          courtTypeLabel,
-          courtTypeGroup: courtTypeLabel,
-          searchText,
-          x: Math.random() * width,
-          y: Math.random() * height,
-          targetX: null,
-          targetY: null,
-          offset1: Math.random() * 1000,
-          offset2: Math.random() * 1000,
-          vx: 0,
-          vy: 0
-        };
+const searchTextNormalized = normalizeSearchText(searchText);
+
+       return {
+  ...d,
+  id: i,
+  issueAreaLabel,
+  issueAreaGroup: issueAreaLabel,
+  courtTypeLabel,
+  courtTypeGroup: courtTypeLabel,
+  searchText,
+  searchTextNormalized,
+  x: Math.random() * width,
+  y: Math.random() * height,
+  targetX: null,
+  targetY: null,
+  offset1: Math.random() * 1000,
+  offset2: Math.random() * 1000,
+  vx: 0,
+  vy: 0
+};
       });
 
       const dotLayer = svg.append("g").attr("class", "dot-layer");
