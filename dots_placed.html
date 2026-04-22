@@ -21,7 +21,7 @@
       top: 0;
       left: 0;
       z-index: 20;
-      width: 320px;
+      width: 250px;
       height: 100vh;
       box-sizing: border-box;
       padding: 20px 18px;
@@ -34,11 +34,11 @@
     .chart-scroll {
       position: fixed;
       top: 0;
-      left: 320px;
+      left: 250px;
       right: 0;
       height: 100vh;
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
     }
 
     svg {
@@ -49,9 +49,8 @@
     }
 
     circle {
-      fill: #000;
       cursor: pointer;
-      transition: r 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
+      /* transition: r 0.25s ease, stroke 0.25s ease, opacity 0.25s ease, fill 0.25s ease; */
     }
 
     .overlay-box h1 {
@@ -85,6 +84,10 @@
       margin: 0;
     }
 
+    #highlightSearchInput {
+      margin-top: 8px;
+    }
+
     button {
       appearance: none;
       border: 1px solid #000;
@@ -110,6 +113,7 @@
       line-height: 1.3;
       opacity: 0.7;
       margin-top: 6px;
+      margin-bottom: 10px;
     }
 
     .tooltip {
@@ -188,6 +192,20 @@
       shape-rendering: crispEdges;
     }
 
+    .matrix-col-label,
+    .matrix-row-label {
+      font-size: 10px;
+      font-weight: 700;
+      fill: #000;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
+    .matrix-col-line,
+    .matrix-row-line {
+      stroke-opacity: 0.12;
+    }
+
     .export-box {
       position: fixed;
       top: 20px;
@@ -235,21 +253,29 @@
       Supreme Court Dockets 1925 - 2024
     </p>
 
-    <div class="controls">
+  
+
+ <div class="controls">
       <button id="issueClusterBtn">What are these cases about?</button>
-      <button id="courtClusterBtn">Where do they come from?</button>
-      <button id="timelineIssueBtn">Timeline by issue</button>
-      <button id="timelineCourtBtn">Timeline by court</button>
-      <button id="releaseBtn">Reset</button>
+      <button id="courtClusterBtn">Where do they come from? Mostly U.S. District Courts and State Trial Courts</button>
+      <button id="timelineIssueBtn">Have issues changed over time? Yes, see civil rights, criminal procedure, economic activity.</button>
+      <button id="timelineCourtBtn">Have caseloads from lower courts changed over time? Yes, a lot.</button>
+      <button id="timelineOverallBtn">Has the caseload changed over time? Yes, SCOTUS hears fewer cases now than ever before.</button>
+      <button id="matrixCourtIssueBtn">Which lower courts deals with what issues? Court × issue matrix</button>
     </div>
-
+Search 1 - use to cluster
     <input id="searchInput" class="search-input" type="text" placeholder="Search cases, issue, court, state..." />
-
     <div class="search-help">
       Use <b>,</b> for OR (e.g. roberts, court of appeals) and <b>+</b> for AND (e.g. roberts+court of appeals)
     </div>
-  </div>
+Search 2 - use to highlight
+    <input id="highlightSearchInput" class="search-input" type="text" placeholder="Highlight matching cases..." />
 
+    <div class="search-help">
+    </div>
+          <button id="releaseBtn">Reset back to a cloud</button>
+
+  </div>
   <div class="chart-scroll" id="chartScroll">
     <svg id="chart"></svg>
   </div>
@@ -257,11 +283,42 @@
   <div id="tooltip" class="tooltip"></div>
 
   <script>
-    const SIDEBAR_WIDTH = 320;
+    const SIDEBAR_WIDTH = 250;
     const CHART_PAD_LEFT = 24;
     const CHART_PAD_RIGHT = 24;
-    const CHART_PAD_TOP = 24;
+    const CHART_PAD_TOP = 50;
     const CHART_PAD_BOTTOM = 24;
+
+    const MATRIX_MIN_COL_WIDTH = 10;
+    const MATRIX_ROW_HEIGHT = 42;
+    const MATRIX_CELL_PAD_X = 2;
+    const MATRIX_CELL_PAD_Y = 8;
+    const MATRIX_LEFT_LABEL_PAD = 100;
+    const MATRIX_TOP_LABEL_PAD = 100;
+    const MATRIX_CLUSTER_RADIUS_FACTOR = 2.6;
+
+    // Rows = issue
+    const MATRIX_ROW_ORDER = [
+      // "Criminal Procedure",
+      // "Civil Rights",
+      // "First Amendment",
+      // "Due Process",
+      // "Privacy",
+      // "Attorneys",
+      // "Unions",
+      // "Federal Taxation",
+      // "Miscellaneous"
+    ];
+
+    // Columns = court
+    const MATRIX_COL_ORDER = [
+      // "U.S. Court of Appeals",
+      // "State Supreme Court",
+      // "U.S. District Court",
+      // "State Appellate Court",
+      // "State Trial Court",
+      // "Other"
+    ];
 
     const chartScroll = document.getElementById("chartScroll");
     const svg = d3.select("#chart");
@@ -270,19 +327,19 @@
     const courtClusterBtn = document.getElementById("courtClusterBtn");
     const timelineIssueBtn = document.getElementById("timelineIssueBtn");
     const timelineCourtBtn = document.getElementById("timelineCourtBtn");
+    const timelineOverallBtn = document.getElementById("timelineOverallBtn");
+    const matrixCourtIssueBtn = document.getElementById("matrixCourtIssueBtn");
     const releaseBtn = document.getElementById("releaseBtn");
     const searchInput = document.getElementById("searchInput");
-
-
-            const minBandHeight = 40;
-      const bandPadding = 10;
-
+    const highlightSearchInput = document.getElementById("highlightSearchInput");
 
     let width = chartScroll.clientWidth;
     let height = window.innerHeight;
     let svgHeight = window.innerHeight;
+    let svgWidth = chartScroll.clientWidth;
 
-    svg.attr("viewBox", `0 0 ${width} ${svgHeight}`);
+    svg.attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+    svg.style("width", `${svgWidth}px`);
     svg.style("height", `${svgHeight}px`);
 
     const DOT_RADIUS = 3;
@@ -343,7 +400,7 @@
     let autoRestartTimeout = null;
     let isUserHovering = false;
 
-    let clusterMode = null; // null | "issue" | "court" | "search" | "timelineIssue" | "timelineCourt"
+    let clusterMode = null; // null | "issue" | "court" | "search" | "timelineIssue" | "timelineCourt" | "timelineOverall" | "matrixCourtIssue"
     let clusterCenters = new Map();
     let clusterCounts = new Map();
 
@@ -353,13 +410,26 @@
     let releaseMode = false;
     let releaseEndTime = 0;
     let searchTerm = "";
+    let highlightSearchTerm = "";
+
+    function applyPreferredOrder(items, preferredOrder) {
+      const itemSet = new Set(items);
+      const ordered = preferredOrder.filter(d => itemSet.has(d));
+      const remaining = items.filter(d => !preferredOrder.includes(d)).sort(d3.ascending);
+      return [...ordered, ...remaining];
+    }
+
+    function clusterRadiusForCount(count) {
+      if (count <= 0) return 0;
+      return MATRIX_CLUSTER_RADIUS_FACTOR * Math.sqrt(Math.max(0, count - 1));
+    }
 
     function chartLeft() {
       return CHART_PAD_LEFT;
     }
 
     function chartRight() {
-      return width - CHART_PAD_RIGHT;
+      return svgWidth - CHART_PAD_RIGHT;
     }
 
     function chartTop() {
@@ -382,15 +452,36 @@
       // placeholder
     }
 
-    function updateSvgHeightForMode() {
-      const isTimelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+    function updateStickyMatrixHeaders() {
+      if (clusterMode !== "matrixCourtIssue" || !axisLayer) return;
 
-      if (!isTimelineMode) {
-        svgHeight = window.innerHeight;
-      } else {
-        const groupAccessor = clusterMode === "timelineIssue"
-          ? d => d.issueAreaGroup
-          : d => d.courtTypeGroup;
+      const stickyY = chartScroll.scrollTop + chartTop() + 100;
+
+      axisLayer.selectAll("text.matrix-col-label")
+        .attr("y", stickyY)
+        .attr("transform", function(d) {
+          return `rotate(-45, ${d.x}, ${stickyY})`;
+        });
+    }
+
+    function updateSvgSizeForMode() {
+      const isTimelineMode =
+        clusterMode === "timelineIssue" ||
+        clusterMode === "timelineCourt" ||
+        clusterMode === "timelineOverall";
+
+      const isMatrixMode = clusterMode === "matrixCourtIssue";
+
+      svgWidth = chartScroll.clientWidth;
+      svgHeight = window.innerHeight;
+
+      if (isTimelineMode) {
+        const groupAccessor =
+          clusterMode === "timelineIssue"
+            ? d => d.issueAreaGroup
+            : clusterMode === "timelineCourt"
+              ? d => d.courtTypeGroup
+              : d => "All cases";
 
         const grouped = d3.group(dots, groupAccessor);
         const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
@@ -415,7 +506,8 @@
         }
 
         const laneSpacing = 2;
-        const bandPadding = 100;
+        const minBandHeight = 18;
+        const bandPadding = 10;
         const topPad = 140;
         const bottomPad = 40;
 
@@ -450,8 +542,58 @@
         svgHeight = Math.max(window.innerHeight, totalHeight);
       }
 
+      if (isMatrixMode) {
+        const rawRowNames = Array.from(new Set(dots.map(d => d.issueAreaGroup).filter(Boolean)));
+        const rawColNames = Array.from(new Set(dots.map(d => d.courtTypeGroup).filter(Boolean)));
+
+        const rowNames = applyPreferredOrder(rawRowNames, MATRIX_ROW_ORDER);
+        const colNames = applyPreferredOrder(rawColNames, MATRIX_COL_ORDER);
+
+        const grouped = d3.group(dots, d => `${d.issueAreaGroup}|||${d.courtTypeGroup}`);
+
+        const rowHeights = rowNames.map(rowName => {
+          let maxRadius = 0;
+
+          colNames.forEach(colName => {
+            const key = `${rowName}|||${colName}`;
+            const count = (grouped.get(key) || []).length;
+            maxRadius = Math.max(maxRadius, clusterRadiusForCount(count));
+          });
+
+          return Math.max(MATRIX_ROW_HEIGHT, maxRadius * 2 + MATRIX_CELL_PAD_Y * 2);
+        });
+
+        const colWidths = colNames.map(colName => {
+          let maxRadius = 0;
+
+          rowNames.forEach(rowName => {
+            const key = `${rowName}|||${colName}`;
+            const count = (grouped.get(key) || []).length;
+            maxRadius = Math.max(maxRadius, clusterRadiusForCount(count));
+          });
+
+          return Math.max(MATRIX_MIN_COL_WIDTH, maxRadius * 2 + MATRIX_CELL_PAD_X * 2);
+        });
+
+        const totalWidth =
+          CHART_PAD_LEFT +
+          MATRIX_LEFT_LABEL_PAD +
+          d3.sum(colWidths) +
+          CHART_PAD_RIGHT;
+
+        const totalHeight =
+          CHART_PAD_TOP +
+          MATRIX_TOP_LABEL_PAD +
+          d3.sum(rowHeights) +
+          CHART_PAD_BOTTOM;
+
+        svgWidth = Math.max(chartScroll.clientWidth, totalWidth);
+        svgHeight = Math.max(window.innerHeight, totalHeight);
+      }
+
       svg
-        .attr("viewBox", `0 0 ${width} ${svgHeight}`)
+        .attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`)
+        .style("width", `${svgWidth}px`)
         .style("height", `${svgHeight}px`);
     }
 
@@ -523,10 +665,35 @@
       return pinnedDatum || hoveredDatum || autoActiveDatum;
     }
 
+    function parseSearchQuery(raw) {
+      return raw
+        .split(",")
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(group =>
+          group
+            .split("+")
+            .map(term => normalizeSearchText(term))
+            .filter(Boolean)
+        )
+        .filter(group => group.length);
+    }
+
+    function datumMatchesParsedQuery(d, parsedGroups) {
+      if (!parsedGroups.length) return false;
+
+      const haystack = d.searchTextNormalized || "";
+
+      return parsedGroups.some(andTerms =>
+        andTerms.every(term => haystack.includes(term))
+      );
+    }
+
     function updateCircleStyles() {
       if (!circles) return;
 
       const activeDatum = getActiveDatum();
+      const highlightActive = highlightSearchTerm.trim() !== "";
 
       circles
         .attr("r", d => {
@@ -535,9 +702,22 @@
           if (!hoveredDatum && !pinnedDatum && autoActiveDatum && d === autoActiveDatum) return AUTO_RADIUS;
           return DOT_RADIUS;
         })
+        .attr("fill", d => d.isHighlighted ? "#c62828" : "#000")
         .attr("stroke", d => activeDatum && d === activeDatum ? "#000" : "none")
         .attr("stroke-width", d => activeDatum && d === activeDatum ? 1.5 : 0)
-        .style("opacity", d => activeDatum ? (d === activeDatum ? ACTIVE_OPACITY : BASE_OPACITY) : BASE_OPACITY);
+        .style("opacity", d => {
+          if (activeDatum) {
+            if (d === activeDatum) return ACTIVE_OPACITY;
+            if (highlightActive) return d.isHighlighted ? 0.6 : 0.05;
+            return BASE_OPACITY;
+          }
+
+          if (highlightActive) {
+            return d.isHighlighted ? 0.95 : 0.05;
+          }
+
+          return BASE_OPACITY;
+        });
     }
 
     function clearAutoTimers() {
@@ -702,6 +882,8 @@
       if (clusterMode === "search") return getSearchValue(d);
       if (clusterMode === "timelineIssue") return d.issueAreaGroup;
       if (clusterMode === "timelineCourt") return d.courtTypeGroup;
+      if (clusterMode === "timelineOverall") return "All cases";
+      if (clusterMode === "matrixCourtIssue") return `${d.issueAreaGroup}|||${d.courtTypeGroup}`;
       return null;
     }
 
@@ -724,6 +906,7 @@
 
     function renderClusterLabels(groupNames) {
       ensureLayers();
+      labelLayer.selectAll("*").remove();
 
       const labelData = groupNames.map(groupName => ({
         groupName,
@@ -734,37 +917,27 @@
 
       const groups = labelLayer
         .selectAll("g.cluster-label-group")
-        .data(labelData, d => d.groupName);
+        .data(labelData, d => d.groupName)
+        .join("g")
+        .attr("class", "cluster-label-group")
+        .style("opacity", clusterMode && clusterMode !== "timelineIssue" && clusterMode !== "timelineCourt" && clusterMode !== "timelineOverall" ? 1 : 0);
 
-      const groupsEnter = groups
-        .enter()
-        .append("g")
-        .attr("class", "cluster-label-group");
-
-      groupsEnter.append("text").attr("class", "cluster-label");
-      groupsEnter.append("text").attr("class", "cluster-count");
-
-      const merged = groupsEnter.merge(groups);
-
-      merged.style("opacity", clusterMode && clusterMode !== "timelineIssue" && clusterMode !== "timelineCourt" ? 1 : 0);
-
-      merged
-        .select(".cluster-label")
+      groups.append("text")
+        .attr("class", "cluster-label")
         .attr("x", d => d.x)
         .attr("y", d => d.y - 7)
         .text(d => d.groupName);
 
-      merged
-        .select(".cluster-count")
+      groups.append("text")
+        .attr("class", "cluster-count")
         .attr("x", d => d.x)
         .attr("y", d => d.y + 9)
         .text(d => d3.format(",")(d.count));
-
-      groups.exit().remove();
     }
 
     function renderTimelineLabels(groupNames, bandCenters, xMin) {
       ensureLayers();
+      labelLayer.selectAll("*").remove();
 
       const labelData = groupNames.map(groupName => ({
         groupName,
@@ -774,40 +947,33 @@
       }));
 
       const groups = labelLayer
-        .selectAll("g.cluster-label-group")
-        .data(labelData, d => d.groupName);
+        .selectAll("g.timeline-label-group")
+        .data(labelData, d => d.groupName)
+        .join("g")
+        .attr("class", "timeline-label-group")
+        .style("opacity", (clusterMode === "timelineIssue" || clusterMode === "timelineCourt" || clusterMode === "timelineOverall") ? 1 : 0);
 
-      const groupsEnter = groups
-        .enter()
-        .append("g")
-        .attr("class", "cluster-label-group");
-
-      groupsEnter.append("text").attr("class", "timeline-label");
-      groupsEnter.append("text").attr("class", "timeline-count");
-
-      const merged = groupsEnter.merge(groups);
-
-      merged.style("opacity", (clusterMode === "timelineIssue" || clusterMode === "timelineCourt") ? 1 : 0);
-
-      merged
-        .select(".timeline-label")
+      groups.append("text")
+        .attr("class", "timeline-label")
         .attr("x", d => d.x)
         .attr("y", d => d.y - 6)
         .text(d => d.groupName);
 
-      merged
-        .select(".timeline-count")
+      groups.append("text")
+        .attr("class", "timeline-count")
         .attr("x", d => d.x)
         .attr("y", d => d.y + 8)
         .text(d => d3.format(",")(d.count));
-
-      groups.exit().remove();
     }
 
     function updateClusterLabelVisibility() {
       if (!labelLayer) return;
+      if (clusterMode === "matrixCourtIssue") return;
 
-      const timelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+      const timelineMode =
+        clusterMode === "timelineIssue" ||
+        clusterMode === "timelineCourt" ||
+        clusterMode === "timelineOverall";
 
       labelLayer.selectAll(".cluster-label").style("opacity", clusterMode && !timelineMode ? 1 : 0);
       labelLayer.selectAll(".cluster-count").style("opacity", clusterMode && !timelineMode ? 0.75 : 0);
@@ -846,6 +1012,8 @@
       }
 
       const laneSpacing = 2;
+      const minBandHeight = 18;
+      const bandPadding = 10;
       const bandCenters = new Map();
       const bandHeights = new Map();
 
@@ -977,8 +1145,158 @@
       assignTimelineTargets(d => d.courtTypeGroup);
     }
 
+    function assignTimelineOverallTargets() {
+      assignTimelineTargets(() => "All cases");
+    }
+
+    function assignMatrixCourtIssueTargets() {
+      ensureLayers();
+      clearTimelineGuides();
+
+      clusterCenters = new Map();
+      clusterCounts = new Map();
+
+      const rawRowNames = Array.from(new Set(dots.map(d => d.issueAreaGroup).filter(Boolean)));
+      const rawColNames = Array.from(new Set(dots.map(d => d.courtTypeGroup).filter(Boolean)));
+
+      const rowNames = applyPreferredOrder(rawRowNames, MATRIX_ROW_ORDER);
+      const colNames = applyPreferredOrder(rawColNames, MATRIX_COL_ORDER);
+
+      const grouped = d3.group(
+        dots,
+        d => `${d.issueAreaGroup}|||${d.courtTypeGroup}`
+      );
+
+      const leftLabelPad = MATRIX_LEFT_LABEL_PAD;
+      const topLabelPad = MATRIX_TOP_LABEL_PAD;
+      const xMin = chartLeft() + leftLabelPad;
+      const yMin = chartTop() + topLabelPad;
+
+      const rowHeights = new Map();
+      const colWidths = new Map();
+
+      rowNames.forEach(rowName => {
+        let maxRadius = 0;
+
+        colNames.forEach(colName => {
+          const key = `${rowName}|||${colName}`;
+          const count = (grouped.get(key) || []).length;
+          maxRadius = Math.max(maxRadius, clusterRadiusForCount(count));
+        });
+
+        rowHeights.set(
+          rowName,
+          Math.max(MATRIX_ROW_HEIGHT, maxRadius * 2 + MATRIX_CELL_PAD_Y * 2)
+        );
+      });
+
+      colNames.forEach(colName => {
+        let maxRadius = 0;
+
+        rowNames.forEach(rowName => {
+          const key = `${rowName}|||${colName}`;
+          const count = (grouped.get(key) || []).length;
+          maxRadius = Math.max(maxRadius, clusterRadiusForCount(count));
+        });
+
+        colWidths.set(
+          colName,
+          Math.max(MATRIX_MIN_COL_WIDTH, maxRadius * 2 + MATRIX_CELL_PAD_X * 2)
+        );
+      });
+
+      const rowCenters = new Map();
+      const colCenters = new Map();
+
+      let cursorY = yMin;
+      rowNames.forEach(rowName => {
+        const h = rowHeights.get(rowName);
+        rowCenters.set(rowName, cursorY + h / 2);
+        cursorY += h;
+      });
+
+      let cursorX = xMin;
+      colNames.forEach(colName => {
+        const w = colWidths.get(colName);
+        colCenters.set(colName, cursorX + w / 2);
+        cursorX += w;
+      });
+
+      guideLayer.selectAll("*").remove();
+      axisLayer.selectAll("*").remove();
+      labelLayer.selectAll("*").remove();
+
+      axisLayer.selectAll("text.matrix-col-label")
+        .data(colNames.map(d => ({
+          label: d,
+          x: colCenters.get(d)
+        })))
+        .join("text")
+        .attr("class", "matrix-col-label")
+        .attr("x", d => d.x)
+        .attr("y", chartScroll.scrollTop + chartTop() + 42)
+        .attr("text-anchor", "start")
+        .attr("transform", d => {
+          const y = chartScroll.scrollTop + chartTop() + 42;
+          return `rotate(-45, ${d.x}, ${y})`;
+        })
+        .text(d => d.label);
+
+      axisLayer.selectAll("text.matrix-row-label")
+        .data(rowNames)
+        .join("text")
+        .attr("class", "matrix-row-label")
+        .attr("x", chartLeft() + 6)
+        .attr("y", d => rowCenters.get(d))
+        .attr("text-anchor", "start")
+        .text(d => d);
+
+      guideLayer.selectAll("line.matrix-row-line")
+        .data(rowNames)
+        .join("line")
+        .attr("class", "timeline-band-line matrix-row-line")
+        .attr("x1", xMin)
+        .attr("x2", cursorX)
+        .attr("y1", d => rowCenters.get(d))
+        .attr("y2", d => rowCenters.get(d));
+
+      guideLayer.selectAll("line.matrix-col-line")
+        .data(colNames)
+        .join("line")
+        .attr("class", "timeline-band-line matrix-col-line")
+        .attr("x1", d => colCenters.get(d))
+        .attr("x2", d => colCenters.get(d))
+        .attr("y1", yMin)
+        .attr("y2", cursorY);
+
+      rowNames.forEach(rowName => {
+        colNames.forEach(colName => {
+          const key = `${rowName}|||${colName}`;
+          const groupDots = grouped.get(key) || [];
+
+          const cx = colCenters.get(colName);
+          const cy = rowCenters.get(rowName);
+
+          clusterCenters.set(key, { x: cx, y: cy });
+          clusterCounts.set(key, groupDots.length);
+
+          groupDots.forEach((d, j) => {
+            const angle = j * 2.399963229728653;
+            const radius = MATRIX_CLUSTER_RADIUS_FACTOR * Math.sqrt(j);
+
+            d.targetX = cx + Math.cos(angle) * radius;
+            d.targetY = cy + Math.sin(angle) * radius;
+          });
+        });
+      });
+
+      updateStickyMatrixHeaders();
+    }
+
     function assignClusterTargets() {
       ensureLayers();
+
+      if (labelLayer) labelLayer.selectAll("*").remove();
 
       if (!clusterMode) {
         clearTimelineGuides();
@@ -994,6 +1312,18 @@
 
       if (clusterMode === "timelineCourt") {
         assignTimelineCourtTargets();
+        updateClusterLabelVisibility();
+        return;
+      }
+
+      if (clusterMode === "timelineOverall") {
+        assignTimelineOverallTargets();
+        updateClusterLabelVisibility();
+        return;
+      }
+
+      if (clusterMode === "matrixCourtIssue") {
+        assignMatrixCourtIssueTargets();
         updateClusterLabelVisibility();
         return;
       }
@@ -1119,13 +1449,15 @@
       courtClusterBtn.classList.toggle("active", clusterMode === "court");
       timelineIssueBtn.classList.toggle("active", clusterMode === "timelineIssue");
       timelineCourtBtn.classList.toggle("active", clusterMode === "timelineCourt");
+      timelineOverallBtn.classList.toggle("active", clusterMode === "timelineOverall");
+      matrixCourtIssueBtn.classList.toggle("active", clusterMode === "matrixCourtIssue");
     }
 
     function enableClusterMode(mode) {
       if (clusterMode === mode) return;
 
       clusterMode = mode;
-      updateSvgHeightForMode();
+      updateSvgSizeForMode();
       updateButtonStates();
       assignClusterTargets();
       updateClusterLabelVisibility();
@@ -1145,7 +1477,7 @@
       if (!clusterMode) return;
 
       clusterMode = null;
-      updateSvgHeightForMode();
+      updateSvgSizeForMode();
       updateButtonStates();
       clearTimelineGuides();
       updateClusterLabelVisibility();
@@ -1170,7 +1502,11 @@
               ? d.issueAreaGroup
               : priorMode === "timelineCourt"
                 ? d.courtTypeGroup
-                : getSearchValue(d);
+                : priorMode === "timelineOverall"
+                  ? "All cases"
+                  : priorMode === "matrixCourtIssue"
+                    ? `${d.issueAreaGroup}|||${d.courtTypeGroup}`
+                    : getSearchValue(d);
 
         const center = clusterCenters.get(groupValue);
         if (!center) return;
@@ -1191,6 +1527,7 @@
       });
 
       chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
 
       if (!isUserHovering && !pinnedDatum) {
         scheduleNextAutoPopup(1000);
@@ -1203,7 +1540,7 @@
 
       if (q) {
         clusterMode = "search";
-        updateSvgHeightForMode();
+        updateSvgSizeForMode();
         updateButtonStates();
         assignClusterTargets();
         updateClusterLabelVisibility();
@@ -1223,6 +1560,20 @@
           scheduleNextAutoPopup(500);
         }
       }
+    }
+
+    function applyHighlightSearch() {
+      highlightSearchTerm = highlightSearchInput.value.trim();
+      const parsedGroups = parseSearchQuery(highlightSearchTerm);
+      const highlightActive = parsedGroups.length > 0;
+
+      dots.forEach(d => {
+        d.isHighlighted = highlightActive
+          ? datumMatchesParsedQuery(d, parsedGroups)
+          : false;
+      });
+
+      updateCircleStyles();
     }
 
     Promise.all([
@@ -1270,11 +1621,12 @@
           offset1: Math.random() * 1000,
           offset2: Math.random() * 1000,
           vx: 0,
-          vy: 0
+          vy: 0,
+          isHighlighted: false
         };
       });
 
-      updateSvgHeightForMode();
+      updateSvgSizeForMode();
 
       const dotLayer = svg.append("g").attr("class", "dot-layer");
       ensureLayers();
@@ -1286,6 +1638,7 @@
         .attr("r", DOT_RADIUS)
         .attr("cx", d => d.x)
         .attr("cy", d => d.y)
+        .attr("fill", "#000")
         .style("opacity", BASE_OPACITY)
         .on("mouseenter", function(event, d) {
           isUserHovering = true;
@@ -1374,7 +1727,10 @@
             let ty = d.targetY;
 
             const focusDatum = pinnedDatum || hoveredDatum;
-            const isTimelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+            const isTimelineMode =
+              clusterMode === "timelineIssue" ||
+              clusterMode === "timelineCourt" ||
+              clusterMode === "timelineOverall";
 
             if (isTimelineMode && focusDatum && d !== focusDatum) {
               const dx = d.targetX - focusDatum.targetX;
@@ -1432,31 +1788,52 @@
 
     issueClusterBtn.addEventListener("click", () => {
       chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
       enableClusterMode("issue");
     });
 
     courtClusterBtn.addEventListener("click", () => {
       chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
       enableClusterMode("court");
     });
 
     timelineIssueBtn.addEventListener("click", () => {
       chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
       enableClusterMode("timelineIssue");
     });
 
     timelineCourtBtn.addEventListener("click", () => {
       chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
       enableClusterMode("timelineCourt");
+    });
+
+    timelineOverallBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
+      enableClusterMode("timelineOverall");
+    });
+
+    matrixCourtIssueBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      chartScroll.scrollLeft = 0;
+      enableClusterMode("matrixCourtIssue");
     });
 
     releaseBtn.addEventListener("click", startRelease);
     searchInput.addEventListener("input", applySearchCluster);
+    highlightSearchInput.addEventListener("input", applyHighlightSearch);
+
+    chartScroll.addEventListener("scroll", () => {
+      updateStickyMatrixHeaders();
+    });
 
     window.addEventListener("resize", () => {
       width = chartScroll.clientWidth;
       height = window.innerHeight;
-      updateSvgHeightForMode();
+      updateSvgSizeForMode();
 
       if (dots.length && clusterMode) {
         assignClusterTargets();
