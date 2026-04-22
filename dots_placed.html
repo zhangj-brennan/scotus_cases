@@ -16,10 +16,36 @@
       font-family: Arial, sans-serif;
     }
 
+    .overlay-box {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 20;
+      width: 320px;
+      height: 100vh;
+      box-sizing: border-box;
+      padding: 20px 18px;
+      background: rgba(255, 255, 255, 0.97);
+      border-right: 1px solid #000;
+      line-height: 1.4;
+      overflow-y: auto;
+    }
+
+    .chart-scroll {
+      position: fixed;
+      top: 0;
+      left: 320px;
+      right: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
     svg {
       display: block;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: auto;
+      min-height: 100vh;
     }
 
     circle {
@@ -28,38 +54,8 @@
       transition: r 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
     }
 
-  .overlay-box {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 20;
-  max-width: 300px;
-  padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  line-height: 1.4;
-}
-/* 
-   .overlay-box h1,
-.overlay-box p {
-   background: rgba(255, 255, 255, 0.92);} */
-
-.search-help{
-background: rgba(255, 255, 255, 0.92); 
-}
-.controls,
-.search-help {
-  display: inline-block;
-  padding: 4px 6px;
-  margin-bottom: 6px;}
-
-.controls {
-  gap: 6px;}
-
- .overlay-box h1 {
+    .overlay-box h1 {
       margin: 0 0 8px 0;
-      /* font-size: 20px; */
       line-height: 1.1;
       font-weight: 700;
     }
@@ -71,9 +67,9 @@ background: rgba(255, 255, 255, 0.92);
 
     .controls {
       display: flex;
+      flex-direction: column;
       gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
+      margin-bottom: 10px;
     }
 
     .search-input {
@@ -84,8 +80,9 @@ background: rgba(255, 255, 255, 0.92);
       font: inherit;
       font-size: 12px;
       padding: 7px 10px;
-      width: 220px;
+      width: 100%;
       box-sizing: border-box;
+      margin: 0;
     }
 
     button {
@@ -97,7 +94,9 @@ background: rgba(255, 255, 255, 0.92);
       font-size: 14px;
       padding: 7px 10px;
       cursor: pointer;
-      text-align:left;
+      text-align: left;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     button.active {
@@ -105,19 +104,26 @@ background: rgba(255, 255, 255, 0.92);
       color: #fff;
     }
 
+    .search-help {
+      width: 100%;
+      font-size: 11px;
+      line-height: 1.3;
+      opacity: 0.7;
+      margin-top: 6px;
+    }
+
     .tooltip {
       position: fixed;
       pointer-events: none;
-      color:white;
+      color: white;
       background: rgba(0,0,0,0.96);
-      /* border: 1px solid #; */
       padding: 10px 12px;
       font-size: 12px;
       line-height: 1.35;
-      max-width: 200px;
+      max-width: 220px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       display: none;
-      z-index: 10;
+      z-index: 30;
     }
 
     .tooltip .label {
@@ -135,12 +141,7 @@ background: rgba(255, 255, 255, 0.92);
       fill: #000;
       text-anchor: middle;
       dominant-baseline: middle;
-      pointer-events: all;
-      cursor: grab;
-    }
-
-    .cluster-label.dragging {
-      cursor: grabbing;
+      pointer-events: none;
     }
 
     .cluster-count {
@@ -150,6 +151,41 @@ background: rgba(255, 255, 255, 0.92);
       dominant-baseline: middle;
       pointer-events: none;
       opacity: 0.75;
+    }
+
+    .timeline-label {
+      font-size: 11px;
+      font-weight: 700;
+      fill: #000;
+      text-anchor: start;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
+    .timeline-count {
+      font-size: 10px;
+      fill: #000;
+      text-anchor: start;
+      dominant-baseline: middle;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .timeline-axis text {
+      font-size: 10px;
+      fill: #000;
+    }
+
+    .timeline-axis path,
+    .timeline-axis line {
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .timeline-band-line {
+      stroke: #000;
+      stroke-opacity: 0.08;
+      shape-rendering: crispEdges;
     }
 
     .export-box {
@@ -190,52 +226,64 @@ background: rgba(255, 255, 255, 0.92);
       background: #fff;
       color: #000;
     }
-    .search-help {
-  width: 100%;
-  font-size: 11px;
-  line-height: 1.3;
-  opacity: 0.7;
-  margin-top: -2px;
-}
-.search-input{
-  margin:5px;
-}
   </style>
 </head>
 <body>
   <div class="overlay-box">
     <h1>100 Years<br>12,775 Cases</h1>
     <p>
-      Supreme Court Dockets 1925 - 2024 
-    </p><br>
+      Supreme Court Dockets 1925 - 2024
+    </p>
+
     <div class="controls">
-      
-<button id="issueClusterBtn">What are these cases about?</button>
+      <button id="issueClusterBtn">What are these cases about?</button>
       <button id="courtClusterBtn">Where do they come from?</button>
+      <button id="timelineIssueBtn">Timeline by issue</button>
+      <button id="timelineCourtBtn">Timeline by court</button>
       <button id="releaseBtn">Reset</button>
     </div>
+
     <input id="searchInput" class="search-input" type="text" placeholder="Search cases, issue, court, state..." />
-      <div class="search-help">
-  Use <b>,</b> for OR (e.g. roberts, court of appeals) and <b>+</b> for AND (e.g. roberts+court of appeals)
-</div>
+
+    <div class="search-help">
+      Use <b>,</b> for OR (e.g. roberts, court of appeals) and <b>+</b> for AND (e.g. roberts+court of appeals)
+    </div>
   </div>
 
-  
-  <svg id="chart"></svg>
+  <div class="chart-scroll" id="chartScroll">
+    <svg id="chart"></svg>
+  </div>
+
   <div id="tooltip" class="tooltip"></div>
 
   <script>
+    const SIDEBAR_WIDTH = 320;
+    const CHART_PAD_LEFT = 24;
+    const CHART_PAD_RIGHT = 24;
+    const CHART_PAD_TOP = 24;
+    const CHART_PAD_BOTTOM = 24;
+
+    const chartScroll = document.getElementById("chartScroll");
     const svg = d3.select("#chart");
     const tooltip = d3.select("#tooltip");
     const issueClusterBtn = document.getElementById("issueClusterBtn");
     const courtClusterBtn = document.getElementById("courtClusterBtn");
+    const timelineIssueBtn = document.getElementById("timelineIssueBtn");
+    const timelineCourtBtn = document.getElementById("timelineCourtBtn");
     const releaseBtn = document.getElementById("releaseBtn");
     const searchInput = document.getElementById("searchInput");
- 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
 
-    svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+            const minBandHeight = 40;
+      const bandPadding = 10;
+
+
+    let width = chartScroll.clientWidth;
+    let height = window.innerHeight;
+    let svgHeight = window.innerHeight;
+
+    svg.attr("viewBox", `0 0 ${width} ${svgHeight}`);
+    svg.style("height", `${svgHeight}px`);
 
     const DOT_RADIUS = 3;
     const HOVER_RADIUS = 6;
@@ -264,6 +312,10 @@ background: rgba(255, 255, 255, 0.92);
     const RELEASE_SPEED = 5.2;
     const RELEASE_DAMPING = 0.1;
 
+    const HOVER_REPULSION_RADIUS = 26;
+    const HOVER_REPULSION_STRENGTH = 10;
+    const HOVER_REPULSION_EASE = 0.22;
+
     const DATA_PATH = "SCDB_combined_100years.csv";
     const ISSUE_AREA_PATH = "issue_area.csv";
     const CASE_ORIGIN_TYPE_PATH = "case_origin_with_type.csv";
@@ -282,13 +334,16 @@ background: rgba(255, 255, 255, 0.92);
     let dots = [];
     let circles = null;
     let labelLayer = null;
+    let axisLayer = null;
+    let guideLayer = null;
     let autoActiveDatum = null;
     let hoveredDatum = null;
+    let pinnedDatum = null;
     let autoTimeout = null;
     let autoRestartTimeout = null;
     let isUserHovering = false;
 
-    let clusterMode = null; // null | "issue" | "court" | "search"
+    let clusterMode = null; // null | "issue" | "court" | "search" | "timelineIssue" | "timelineCourt"
     let clusterCenters = new Map();
     let clusterCounts = new Map();
 
@@ -299,18 +354,117 @@ background: rgba(255, 255, 255, 0.92);
     let releaseEndTime = 0;
     let searchTerm = "";
 
+    function chartLeft() {
+      return CHART_PAD_LEFT;
+    }
+
+    function chartRight() {
+      return width - CHART_PAD_RIGHT;
+    }
+
+    function chartTop() {
+      return CHART_PAD_TOP;
+    }
+
+    function chartBottom() {
+      return svgHeight - CHART_PAD_BOTTOM;
+    }
+
+    function chartWidth() {
+      return chartRight() - chartLeft();
+    }
+
+    function chartHeight() {
+      return chartBottom() - chartTop();
+    }
+
+    function updateExportBox() {
+      // placeholder
+    }
+
+    function updateSvgHeightForMode() {
+      const isTimelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+
+      if (!isTimelineMode) {
+        svgHeight = window.innerHeight;
+      } else {
+        const groupAccessor = clusterMode === "timelineIssue"
+          ? d => d.issueAreaGroup
+          : d => d.courtTypeGroup;
+
+        const grouped = d3.group(dots, groupAccessor);
+        const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
+
+        const xMin = chartLeft() + 220;
+        const xMax = chartRight();
+
+        const validYears = dots
+          .map(d => d.caseDate instanceof Date && !isNaN(d.caseDate) ? d.caseDate.getFullYear() : null)
+          .filter(y => y != null);
+
+        let xScale;
+
+        if (validYears.length > 1) {
+          xScale = d3.scaleLinear()
+            .domain(d3.extent(validYears))
+            .range([xMin, xMax]);
+        } else {
+          xScale = d3.scaleLinear()
+            .domain([0, 1])
+            .range([xMin, xMax]);
+        }
+
+        const laneSpacing = 2;
+        const bandPadding = 100;
+        const topPad = 140;
+        const bottomPad = 40;
+
+        let totalHeight = topPad + bottomPad;
+
+        groupNames.forEach(groupName => {
+          const groupDots = grouped.get(groupName) || [];
+          const laneOffsets = new Map();
+
+          groupDots.forEach(d => {
+            let tx;
+
+            if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length > 1) {
+              tx = xScale(d.caseDate.getFullYear());
+            } else if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length === 1) {
+              tx = (xMin + xMax) / 2;
+            } else {
+              tx = xMax - 10;
+            }
+
+            const key = Math.round(tx / 6) * 6;
+            laneOffsets.set(key, (laneOffsets.get(key) || 0) + 1);
+          });
+
+          const maxStack = laneOffsets.size ? d3.max(Array.from(laneOffsets.values())) : 1;
+          const levels = Math.ceil((maxStack - 1) / 2);
+          const bandHeight = Math.max(minBandHeight, levels * laneSpacing * 2 + bandPadding);
+
+          totalHeight += bandHeight;
+        });
+
+        svgHeight = Math.max(window.innerHeight, totalHeight);
+      }
+
+      svg
+        .attr("viewBox", `0 0 ${width} ${svgHeight}`)
+        .style("height", `${svgHeight}px`);
+    }
+
     function getCurrentClusterSpacing() {
-  if (clusterMode === "issue") return ISSUE_CLUSTER_SPACING;
-  if (clusterMode === "court") return COURT_CLUSTER_SPACING;
-  if (clusterMode === "search") return SEARCH_CLUSTER_SPACING;
-  return CLUSTER_SPACING;
-}
+      if (clusterMode === "issue") return ISSUE_CLUSTER_SPACING;
+      if (clusterMode === "court") return COURT_CLUSTER_SPACING;
+      if (clusterMode === "search") return SEARCH_CLUSTER_SPACING;
+      return CLUSTER_SPACING;
+    }
 
     function getEstimatedClusterRadius(count) {
-  // Dot layout already uses radius ~ CLUSTER_SPACING * sqrt(j),
-  // so this approximates the outer radius of the cluster.
-  return CLUSTER_SPACING * Math.sqrt(Math.max(1, count - 1)) + CLUSTER_RADIUS_PADDING;
-}
+      return CLUSTER_SPACING * Math.sqrt(Math.max(1, count - 1)) + CLUSTER_RADIUS_PADDING;
+    }
 
     function flowAngle(x, y, t, o1, o2) {
       return (
@@ -330,6 +484,7 @@ background: rgba(255, 255, 255, 0.92);
         <div><span class="label">Case Origin:</span> ${d.caseOrigin || ""}</div>
         <div><span class="label">Court Type:</span> ${d.courtTypeLabel || ""}</div>
         <div><span class="label">Case Origin State:</span> ${d.caseOriginState || ""}</div>
+        <div><span class="label">Date:</span> ${d.displayDate || d.term || d.year || ""}</div>
       `;
     }
 
@@ -365,7 +520,7 @@ background: rgba(255, 255, 255, 0.92);
     }
 
     function getActiveDatum() {
-      return hoveredDatum || autoActiveDatum;
+      return pinnedDatum || hoveredDatum || autoActiveDatum;
     }
 
     function updateCircleStyles() {
@@ -375,13 +530,14 @@ background: rgba(255, 255, 255, 0.92);
 
       circles
         .attr("r", d => {
+          if (pinnedDatum && d === pinnedDatum) return HOVER_RADIUS;
           if (hoveredDatum && d === hoveredDatum) return HOVER_RADIUS;
-          if (!hoveredDatum && autoActiveDatum && d === autoActiveDatum) return AUTO_RADIUS;
+          if (!hoveredDatum && !pinnedDatum && autoActiveDatum && d === autoActiveDatum) return AUTO_RADIUS;
           return DOT_RADIUS;
         })
         .attr("stroke", d => activeDatum && d === activeDatum ? "#000" : "none")
         .attr("stroke-width", d => activeDatum && d === activeDatum ? 1.5 : 0)
-        .style("opacity", d => d === activeDatum ? ACTIVE_OPACITY : BASE_OPACITY);
+        .style("opacity", d => activeDatum ? (d === activeDatum ? ACTIVE_OPACITY : BASE_OPACITY) : BASE_OPACITY);
     }
 
     function clearAutoTimers() {
@@ -392,13 +548,13 @@ background: rgba(255, 255, 255, 0.92);
     }
 
     function scheduleNextAutoPopup(delay = AUTO_POPUP_GAP) {
-      if (clusterMode) return;
+      if (clusterMode || pinnedDatum) return;
       autoRestartTimeout = setTimeout(runAutoPopup, delay);
     }
 
     function runAutoPopup() {
-      if (!dots.length || isUserHovering || clusterMode) {
-        if (!clusterMode) scheduleNextAutoPopup(500);
+      if (!dots.length || isUserHovering || clusterMode || pinnedDatum) {
+        if (!clusterMode && !pinnedDatum) scheduleNextAutoPopup(500);
         return;
       }
 
@@ -409,7 +565,7 @@ background: rgba(255, 255, 255, 0.92);
       autoTimeout = setTimeout(() => {
         autoActiveDatum = null;
         updateCircleStyles();
-        if (!isUserHovering) hideTooltip();
+        if (!isUserHovering && !pinnedDatum) hideTooltip();
         scheduleNextAutoPopup();
       }, AUTO_POPUP_DURATION);
     }
@@ -421,6 +577,14 @@ background: rgba(255, 255, 255, 0.92);
     function normalizeLabel(value, fallback = "Unknown") {
       const v = String(value == null ? "" : value).trim();
       return v === "" ? fallback : v;
+    }
+
+    function normalizeSearchText(value) {
+      return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
     function buildIssueAreaLookup(rows) {
@@ -458,50 +622,108 @@ background: rgba(255, 255, 255, 0.92);
       if (normalized === "") return "Unknown";
       return caseOriginCourtTypeLookup.get(normalized) || "Unknown";
     }
-function normalizeSearchText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-   function getSearchValue(d) {
-  const raw = searchTerm.trim();
-  if (!raw) return null;
 
-  const haystack = d.searchTextNormalized || "";
+    function parseNumberMaybe(v) {
+      const n = +v;
+      return Number.isFinite(n) ? n : null;
+    }
 
-  const orGroups = raw
-    .split(",")
-    .map(part => part.trim())
-    .filter(Boolean);
+    function parseCaseDate(d) {
+      const directDateCandidates = [
+        d.decisionDate,
+        d.dateDecision,
+        d.date_decision,
+        d.dateDecisionStr,
+        d.date,
+        d.decision_date
+      ].filter(Boolean);
 
-  const isMatch = orGroups.some(group => {
-    const andTerms = group
-      .split("+")
-      .map(term => normalizeSearchText(term))
-      .filter(Boolean);
+      for (const value of directDateCandidates) {
+        const parsed = new Date(value);
+        if (!isNaN(parsed)) return parsed;
+      }
 
-    if (!andTerms.length) return false;
+      const year = parseNumberMaybe(d.term) ??
+                   parseNumberMaybe(d.year) ??
+                   parseNumberMaybe(d.decisionYear) ??
+                   parseNumberMaybe(d.dateDecisionYear);
 
-    return andTerms.every(term => haystack.includes(term));
-  });
+      const month = parseNumberMaybe(d.dateDecisionMonth) ??
+                    parseNumberMaybe(d.decisionMonth) ??
+                    1;
 
-  return isMatch ? raw : "Other cases";
-}
+      const day = parseNumberMaybe(d.dateDecisionDay) ??
+                  parseNumberMaybe(d.decisionDay) ??
+                  1;
+
+      if (year != null) {
+        const parsed = new Date(year, Math.max(0, month - 1), Math.max(1, day));
+        if (!isNaN(parsed)) return parsed;
+      }
+
+      return null;
+    }
+
+    function formatCaseDateForDisplay(dateObj, d) {
+      if (dateObj) {
+        return d3.timeFormat("%b. %-d, %Y")(dateObj);
+      }
+      return d.term || d.year || "";
+    }
+
+    function getSearchValue(d) {
+      const raw = searchTerm.trim();
+      if (!raw) return null;
+
+      const haystack = d.searchTextNormalized || "";
+
+      const orGroups = raw
+        .split(",")
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      const isMatch = orGroups.some(group => {
+        const andTerms = group
+          .split("+")
+          .map(term => normalizeSearchText(term))
+          .filter(Boolean);
+
+        if (!andTerms.length) return false;
+
+        return andTerms.every(term => haystack.includes(term));
+      });
+
+      return isMatch ? raw : "Other cases";
+    }
 
     function getGroupValue(d) {
       if (clusterMode === "issue") return d.issueAreaGroup;
       if (clusterMode === "court") return d.courtTypeGroup;
       if (clusterMode === "search") return getSearchValue(d);
+      if (clusterMode === "timelineIssue") return d.issueAreaGroup;
+      if (clusterMode === "timelineCourt") return d.courtTypeGroup;
       return null;
     }
 
-    
-    function renderClusterLabels(groupNames) {
+    function ensureLayers() {
+      if (!guideLayer) {
+        guideLayer = svg.append("g").attr("class", "guide-layer");
+      }
       if (!labelLayer) {
         labelLayer = svg.append("g").attr("class", "cluster-label-layer");
       }
+      if (!axisLayer) {
+        axisLayer = svg.append("g").attr("class", "axis-layer");
+      }
+    }
+
+    function clearTimelineGuides() {
+      if (guideLayer) guideLayer.selectAll("*").remove();
+      if (axisLayer) axisLayer.selectAll("*").remove();
+    }
+
+    function renderClusterLabels(groupNames) {
+      ensureLayers();
 
       const labelData = groupNames.map(groupName => ({
         groupName,
@@ -524,7 +746,7 @@ function normalizeSearchText(value) {
 
       const merged = groupsEnter.merge(groups);
 
-      merged.style("opacity", clusterMode ? 1 : 0);
+      merged.style("opacity", clusterMode && clusterMode !== "timelineIssue" && clusterMode !== "timelineCourt" ? 1 : 0);
 
       merged
         .select(".cluster-label")
@@ -538,149 +760,372 @@ function normalizeSearchText(value) {
         .attr("y", d => d.y + 9)
         .text(d => d3.format(",")(d.count));
 
-      
+      groups.exit().remove();
+    }
+
+    function renderTimelineLabels(groupNames, bandCenters, xMin) {
+      ensureLayers();
+
+      const labelData = groupNames.map(groupName => ({
+        groupName,
+        x: xMin - 185,
+        y: bandCenters.get(groupName),
+        count: clusterCounts.get(groupName) || 0
+      }));
+
+      const groups = labelLayer
+        .selectAll("g.cluster-label-group")
+        .data(labelData, d => d.groupName);
+
+      const groupsEnter = groups
+        .enter()
+        .append("g")
+        .attr("class", "cluster-label-group");
+
+      groupsEnter.append("text").attr("class", "timeline-label");
+      groupsEnter.append("text").attr("class", "timeline-count");
+
+      const merged = groupsEnter.merge(groups);
+
+      merged.style("opacity", (clusterMode === "timelineIssue" || clusterMode === "timelineCourt") ? 1 : 0);
+
+      merged
+        .select(".timeline-label")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y - 6)
+        .text(d => d.groupName);
+
+      merged
+        .select(".timeline-count")
+        .attr("x", d => d.x)
+        .attr("y", d => d.y + 8)
+        .text(d => d3.format(",")(d.count));
 
       groups.exit().remove();
-
     }
 
     function updateClusterLabelVisibility() {
       if (!labelLayer) return;
-      labelLayer.selectAll("g.cluster-label-group").style("opacity", clusterMode ? 1 : 0);
+
+      const timelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+
+      labelLayer.selectAll(".cluster-label").style("opacity", clusterMode && !timelineMode ? 1 : 0);
+      labelLayer.selectAll(".cluster-count").style("opacity", clusterMode && !timelineMode ? 0.75 : 0);
+      labelLayer.selectAll(".timeline-label").style("opacity", timelineMode ? 1 : 0);
+      labelLayer.selectAll(".timeline-count").style("opacity", timelineMode ? 0.7 : 0);
+    }
+
+    function assignTimelineTargets(groupAccessor) {
+      ensureLayers();
+      clearTimelineGuides();
+
+      clusterCenters = new Map();
+      clusterCounts = new Map();
+
+      const grouped = d3.group(dots, groupAccessor);
+      const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
+
+      const xMin = chartLeft() + 220;
+      const xMax = chartRight();
+      const yMin = chartTop() + 96;
+
+      const validYears = dots
+        .map(d => d.caseDate instanceof Date && !isNaN(d.caseDate) ? d.caseDate.getFullYear() : null)
+        .filter(y => y != null);
+
+      let xScale;
+
+      if (validYears.length > 1) {
+        xScale = d3.scaleLinear()
+          .domain(d3.extent(validYears))
+          .range([xMin, xMax]);
+      } else {
+        xScale = d3.scaleLinear()
+          .domain([0, 1])
+          .range([xMin, xMax]);
+      }
+
+      const laneSpacing = 2;
+      const bandCenters = new Map();
+      const bandHeights = new Map();
+
+      groupNames.forEach(groupName => {
+        const groupDots = grouped.get(groupName) || [];
+        const laneOffsets = new Map();
+
+        groupDots.forEach(d => {
+          let tx;
+
+          if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length > 1) {
+            tx = xScale(d.caseDate.getFullYear());
+          } else if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length === 1) {
+            tx = (xMin + xMax) / 2;
+          } else {
+            tx = xMax - 10;
+          }
+
+          const key = Math.round(tx / 6) * 6;
+          laneOffsets.set(key, (laneOffsets.get(key) || 0) + 1);
+        });
+
+        const maxStack = laneOffsets.size ? d3.max(Array.from(laneOffsets.values())) : 1;
+        const levels = Math.ceil((maxStack - 1) / 2);
+        const bandHeight = Math.max(minBandHeight, levels * laneSpacing * 2 + bandPadding);
+
+        bandHeights.set(groupName, bandHeight);
+      });
+
+      let cursorY = yMin;
+
+      groupNames.forEach(groupName => {
+        const bandHeight = bandHeights.get(groupName);
+        const cy = cursorY + bandHeight / 2;
+
+        bandCenters.set(groupName, cy);
+
+        const groupDots = grouped.get(groupName) || [];
+        clusterCounts.set(groupName, groupDots.length);
+        clusterCenters.set(groupName, { x: xMin, y: cy });
+
+        cursorY += bandHeight;
+      });
+
+      groupNames.forEach(groupName => {
+        const groupDots = (grouped.get(groupName) || []).slice();
+
+        groupDots.sort((a, b) => {
+          const ay = a.caseDate instanceof Date && !isNaN(a.caseDate) ? a.caseDate.getFullYear() : Number.POSITIVE_INFINITY;
+          const by = b.caseDate instanceof Date && !isNaN(b.caseDate) ? b.caseDate.getFullYear() : Number.POSITIVE_INFINITY;
+          const at = a.caseDate ? a.caseDate.getTime() : Number.POSITIVE_INFINITY;
+          const bt = b.caseDate ? b.caseDate.getTime() : Number.POSITIVE_INFINITY;
+          return d3.ascending(ay, by) || d3.ascending(at, bt) || d3.ascending(a.id, b.id);
+        });
+
+        const laneOffsets = new Map();
+
+        groupDots.forEach(d => {
+          let tx;
+
+          if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length > 1) {
+            tx = xScale(d.caseDate.getFullYear());
+          } else if (d.caseDate instanceof Date && !isNaN(d.caseDate) && validYears.length === 1) {
+            tx = (xMin + xMax) / 2;
+          } else {
+            tx = xMax - 10;
+          }
+
+          const key = Math.round(tx / 6) * 6;
+          const laneIndex = laneOffsets.get(key) || 0;
+          laneOffsets.set(key, laneIndex + 1);
+
+          const offsetPattern = laneIndex === 0
+            ? 0
+            : ((laneIndex % 2 === 1 ? 1 : -1) * Math.ceil(laneIndex / 2) * laneSpacing);
+
+          d.targetX = tx;
+          d.targetY = bandCenters.get(groupName) + offsetPattern;
+        });
+      });
+
+      const guideLines = groupNames.map(groupName => ({
+        groupName,
+        y: bandCenters.get(groupName)
+      }));
+
+      guideLayer.selectAll("line.timeline-band-line")
+        .data(guideLines, d => d.groupName)
+        .join("line")
+        .attr("class", "timeline-band-line")
+        .attr("x1", xMin)
+        .attr("x2", xMax)
+        .attr("y1", d => d.y)
+        .attr("y2", d => d.y);
+
+      const axisG = axisLayer
+        .append("g")
+        .attr("class", "timeline-axis")
+        .attr("transform", `translate(0, ${yMin - 28})`);
+
+      if (validYears.length > 1) {
+        const [minYear, maxYear] = d3.extent(validYears);
+        const spanYears = maxYear - minYear;
+        const tickStep = spanYears > 30 ? 10 : 5;
+
+        axisG.call(
+          d3.axisTop(xScale)
+            .tickValues(
+              d3.range(
+                Math.ceil(minYear / tickStep) * tickStep,
+                maxYear + 1,
+                tickStep
+              )
+            )
+            .tickFormat(d3.format("d"))
+        );
+      } else {
+        axisG.call(d3.axisTop(xScale).ticks(2));
+      }
+
+      renderTimelineLabels(groupNames, bandCenters, xMin);
+    }
+
+    function assignTimelineIssueTargets() {
+      assignTimelineTargets(d => d.issueAreaGroup);
+    }
+
+    function assignTimelineCourtTargets() {
+      assignTimelineTargets(d => d.courtTypeGroup);
     }
 
     function assignClusterTargets() {
-  if (!clusterMode) {
-    updateClusterLabelVisibility();
-    return;
-  }
+      ensureLayers();
 
-  const grouped = d3.group(dots, d => getGroupValue(d));
-  const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
+      if (!clusterMode) {
+        clearTimelineGuides();
+        updateClusterLabelVisibility();
+        return;
+      }
 
-  // Keep your special search layout exactly as-is
-  if (clusterMode === "search") {
-    clusterCenters = new Map();
-    clusterCounts = new Map();
+      if (clusterMode === "timelineIssue") {
+        assignTimelineIssueTargets();
+        updateClusterLabelVisibility();
+        return;
+      }
 
-    const matchPos = SEARCH_CLUSTER_POSITIONS.match;
-    const otherPos = SEARCH_CLUSTER_POSITIONS.other;
+      if (clusterMode === "timelineCourt") {
+        assignTimelineCourtTargets();
+        updateClusterLabelVisibility();
+        return;
+      }
 
-    const matchX = matchPos.x * width;
-    const matchY = matchPos.y * height;
-    const otherX = otherPos.x * width;
-    const otherY = otherPos.y * height;
+      clearTimelineGuides();
 
-    groupNames.forEach(groupName => {
-      const isMatchGroup = groupName === searchTerm;
-      const cx = isMatchGroup ? matchX : otherX;
-      const cy = isMatchGroup ? matchY : otherY;
-      const groupDots = grouped.get(groupName);
+      const grouped = d3.group(dots, d => getGroupValue(d));
+      const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
 
-      clusterCenters.set(groupName, { x: cx, y: cy });
-      clusterCounts.set(groupName, groupDots.length);
+      if (clusterMode === "search") {
+        clusterCenters = new Map();
+        clusterCounts = new Map();
 
-      groupDots.forEach((d, j) => {
-        const angle = j * 2.399963229728653;
-const radius = getCurrentClusterSpacing() * Math.sqrt(j);
-        d.targetX = cx + Math.cos(angle) * radius;
-        d.targetY = cy + Math.sin(angle) * radius;
+        const matchX = chartLeft() + chartWidth() * SEARCH_CLUSTER_POSITIONS.match.x;
+        const matchY = chartTop() + chartHeight() * SEARCH_CLUSTER_POSITIONS.match.y;
+        const otherX = chartLeft() + chartWidth() * SEARCH_CLUSTER_POSITIONS.other.x;
+        const otherY = chartTop() + chartHeight() * SEARCH_CLUSTER_POSITIONS.other.y;
+
+        groupNames.forEach(groupName => {
+          const isMatchGroup = groupName === searchTerm;
+          const cx = isMatchGroup ? matchX : otherX;
+          const cy = isMatchGroup ? matchY : otherY;
+          const groupDots = grouped.get(groupName);
+
+          clusterCenters.set(groupName, { x: cx, y: cy });
+          clusterCounts.set(groupName, groupDots.length);
+
+          groupDots.forEach((d, j) => {
+            const angle = j * 2.399963229728653;
+            const radius = getCurrentClusterSpacing() * Math.sqrt(j);
+            d.targetX = cx + Math.cos(angle) * radius;
+            d.targetY = cy + Math.sin(angle) * radius;
+          });
+        });
+
+        renderClusterLabels(groupNames);
+        return;
+      }
+
+      clusterCenters = new Map();
+      clusterCounts = new Map();
+
+      const packedNodes = groupNames.map(groupName => {
+        const count = grouped.get(groupName).length;
+        return {
+          groupName,
+          count,
+          r: getEstimatedClusterRadius(count)
+        };
       });
-    });
 
-    renderClusterLabels(groupNames);
-    return;
-  }
+      const manualNodes = [];
+      const autoNodes = [];
 
-  clusterCenters = new Map();
-  clusterCounts = new Map();
-
-  const packedNodes = groupNames.map(groupName => {
-    const count = grouped.get(groupName).length;
-    return {
-      groupName,
-      count,
-      r: getEstimatedClusterRadius(count)
-    };
-  });
-
-  // Manual placements still win if provided
-  const manualNodes = [];
-  const autoNodes = [];
-
-  packedNodes.forEach(node => {
-    const manual = MANUAL_CLUSTER_POSITIONS[node.groupName];
-    if (manual) {
-      manualNodes.push({
-        ...node,
-        x: manual.x * width,
-        y: manual.y * height
+      packedNodes.forEach(node => {
+        const manual = MANUAL_CLUSTER_POSITIONS[node.groupName];
+        if (manual) {
+          manualNodes.push({
+            ...node,
+            x: chartLeft() + manual.x * chartWidth(),
+            y: chartTop() + manual.y * chartHeight()
+          });
+        } else {
+          autoNodes.push({ ...node });
+        }
       });
-    } else {
-      autoNodes.push({ ...node });
+
+      if (autoNodes.length) {
+        d3.packSiblings(autoNodes);
+
+        let minX = d3.min(autoNodes, d => d.x - d.r);
+        let maxX = d3.max(autoNodes, d => d.x + d.r);
+        let minY = d3.min(autoNodes, d => d.y - d.r);
+        let maxY = d3.max(autoNodes, d => d.y + d.r);
+
+        const packedWidth = Math.max(1, maxX - minX);
+        const packedHeight = Math.max(1, maxY - minY);
+
+        const padX = 80;
+        const padY = 90;
+
+        const availableWidth = Math.max(1, chartWidth() - padX * 2);
+        const availableHeight = Math.max(1, chartHeight() - padY * 2);
+
+        const scale = Math.min(
+          availableWidth / packedWidth,
+          availableHeight / packedHeight
+        ) * CLUSTER_PACK_SCALE;
+
+        const packedCx = (minX + maxX) / 2;
+        const packedCy = (minY + maxY) / 2;
+        const targetCx = chartLeft() + chartWidth() / 2;
+        const targetCy = chartTop() + chartHeight() / 2;
+
+        autoNodes.forEach(node => {
+          node.x = targetCx + (node.x - packedCx) * scale;
+          node.y = targetCy + (node.y - packedCy) * scale;
+          node.r = node.r * scale;
+        });
+      }
+
+      const finalNodes = [...manualNodes, ...autoNodes];
+
+      finalNodes.forEach(node => {
+        clusterCenters.set(node.groupName, { x: node.x, y: node.y });
+        clusterCounts.set(node.groupName, node.count);
+
+        const groupDots = grouped.get(node.groupName);
+
+        groupDots.forEach((d, j) => {
+          const angle = j * 2.399963229728653;
+          const radius = getCurrentClusterSpacing() * Math.sqrt(j);
+          d.targetX = node.x + Math.cos(angle) * radius;
+          d.targetY = node.y + Math.sin(angle) * radius;
+        });
+      });
+
+      renderClusterLabels(groupNames);
     }
-  });
-
-  if (autoNodes.length) {
-    d3.packSiblings(autoNodes);
-
-    let minX = d3.min(autoNodes, d => d.x - d.r);
-    let maxX = d3.max(autoNodes, d => d.x + d.r);
-    let minY = d3.min(autoNodes, d => d.y - d.r);
-    let maxY = d3.max(autoNodes, d => d.y + d.r);
-
-    const packedWidth = Math.max(1, maxX - minX);
-    const packedHeight = Math.max(1, maxY - minY);
-
-    const padX = 80;
-    const padY = 90;
-
-    const availableWidth = Math.max(1, width - padX * 2);
-    const availableHeight = Math.max(1, height - padY * 2);
-
-    const scale = Math.min(
-      availableWidth / packedWidth,
-      availableHeight / packedHeight
-    ) * CLUSTER_PACK_SCALE;
-
-    const packedCx = (minX + maxX) / 2;
-    const packedCy = (minY + maxY) / 2;
-
-    autoNodes.forEach(node => {
-      node.x = width / 2 + (node.x - packedCx) * scale;
-      node.y = height / 2 + (node.y - packedCy) * scale;
-      node.r = node.r * scale;
-    });
-  }
-
-  const finalNodes = [...manualNodes, ...autoNodes];
-
-  finalNodes.forEach(node => {
-    clusterCenters.set(node.groupName, { x: node.x, y: node.y });
-    clusterCounts.set(node.groupName, node.count);
-
-    const groupDots = grouped.get(node.groupName);
-
-    groupDots.forEach((d, j) => {
-      const angle = j * 2.399963229728653;
-const radius = getCurrentClusterSpacing() * Math.sqrt(j);
-      d.targetX = node.x + Math.cos(angle) * radius;
-      d.targetY = node.y + Math.sin(angle) * radius;
-    });
-  });
-
-  renderClusterLabels(groupNames);
-}
 
     function updateButtonStates() {
       issueClusterBtn.classList.toggle("active", clusterMode === "issue");
       courtClusterBtn.classList.toggle("active", clusterMode === "court");
+      timelineIssueBtn.classList.toggle("active", clusterMode === "timelineIssue");
+      timelineCourtBtn.classList.toggle("active", clusterMode === "timelineCourt");
     }
 
     function enableClusterMode(mode) {
       if (clusterMode === mode) return;
 
       clusterMode = mode;
+      updateSvgHeightForMode();
       updateButtonStates();
       assignClusterTargets();
       updateClusterLabelVisibility();
@@ -700,7 +1145,9 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
       if (!clusterMode) return;
 
       clusterMode = null;
+      updateSvgHeightForMode();
       updateButtonStates();
+      clearTimelineGuides();
       updateClusterLabelVisibility();
       updateCircleStyles();
     }
@@ -719,7 +1166,11 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
           ? d.issueAreaGroup
           : priorMode === "court"
             ? d.courtTypeGroup
-            : getSearchValue(d);
+            : priorMode === "timelineIssue"
+              ? d.issueAreaGroup
+              : priorMode === "timelineCourt"
+                ? d.courtTypeGroup
+                : getSearchValue(d);
 
         const center = clusterCenters.get(groupValue);
         if (!center) return;
@@ -739,7 +1190,9 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
         d.vy = (dy / dist) * RELEASE_SPEED;
       });
 
-      if (!isUserHovering) {
+      chartScroll.scrollTop = 0;
+
+      if (!isUserHovering && !pinnedDatum) {
         scheduleNextAutoPopup(1000);
       }
     }
@@ -750,6 +1203,7 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
 
       if (q) {
         clusterMode = "search";
+        updateSvgHeightForMode();
         updateButtonStates();
         assignClusterTargets();
         updateClusterLabelVisibility();
@@ -765,7 +1219,7 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
         updateCircleStyles();
       } else if (clusterMode === "search") {
         disableClusterMode();
-        if (!isUserHovering) {
+        if (!isUserHovering && !pinnedDatum) {
           scheduleNextAutoPopup(500);
         }
       }
@@ -783,40 +1237,47 @@ const radius = getCurrentClusterSpacing() * Math.sqrt(j);
         const issueAreaLabel = getIssueAreaLabelFromCode(d.issueArea);
         const courtTypeLabel = getCourtTypeFromCaseOriginCode(d.caseOrigin);
 
-const searchText = [
-  d.caseName,
-  d.chief,
-  d.docket,
-  d.issue,
-  issueAreaLabel,
-  courtTypeLabel,
-  d.caseOrigin,
-  d.caseOriginState
-].filter(Boolean).join(" ");
+        const searchText = [
+          d.caseName,
+          d.chief,
+          d.docket,
+          d.issue,
+          issueAreaLabel,
+          courtTypeLabel,
+          d.caseOrigin,
+          d.caseOriginState
+        ].filter(Boolean).join(" ");
 
-const searchTextNormalized = normalizeSearchText(searchText);
+        const searchTextNormalized = normalizeSearchText(searchText);
+        const caseDate = parseCaseDate(d);
+        const displayDate = formatCaseDateForDisplay(caseDate, d);
 
-       return {
-  ...d,
-  id: i,
-  issueAreaLabel,
-  issueAreaGroup: issueAreaLabel,
-  courtTypeLabel,
-  courtTypeGroup: courtTypeLabel,
-  searchText,
-  searchTextNormalized,
-  x: Math.random() * width,
-  y: Math.random() * height,
-  targetX: null,
-  targetY: null,
-  offset1: Math.random() * 1000,
-  offset2: Math.random() * 1000,
-  vx: 0,
-  vy: 0
-};
+        return {
+          ...d,
+          id: i,
+          issueAreaLabel,
+          issueAreaGroup: issueAreaLabel,
+          courtTypeLabel,
+          courtTypeGroup: courtTypeLabel,
+          searchText,
+          searchTextNormalized,
+          caseDate,
+          displayDate,
+          x: chartLeft() + Math.random() * chartWidth(),
+          y: chartTop() + Math.random() * chartHeight(),
+          targetX: null,
+          targetY: null,
+          offset1: Math.random() * 1000,
+          offset2: Math.random() * 1000,
+          vx: 0,
+          vy: 0
+        };
       });
 
+      updateSvgHeightForMode();
+
       const dotLayer = svg.append("g").attr("class", "dot-layer");
+      ensureLayers();
 
       circles = dotLayer
         .selectAll("circle")
@@ -828,27 +1289,73 @@ const searchTextNormalized = normalizeSearchText(searchText);
         .style("opacity", BASE_OPACITY)
         .on("mouseenter", function(event, d) {
           isUserHovering = true;
-          hoveredDatum = d;
           autoActiveDatum = null;
           clearAutoTimers();
-          updateCircleStyles();
 
-          tooltip.style("display", "block").html(tooltipHTML(d));
-          positionTooltip(event.clientX, event.clientY);
+          if (!pinnedDatum || pinnedDatum === d) {
+            hoveredDatum = d;
+            tooltip.style("display", "block").html(tooltipHTML(d));
+            positionTooltip(event.clientX, event.clientY);
+          }
+
+          updateCircleStyles();
         })
-        .on("mousemove", function(event) {
-          positionTooltip(event.clientX, event.clientY);
+        .on("mousemove", function(event, d) {
+          if (pinnedDatum && pinnedDatum !== d) return;
+          if (hoveredDatum || pinnedDatum) {
+            positionTooltip(event.clientX, event.clientY);
+          }
         })
         .on("mouseleave", function() {
           isUserHovering = false;
-          hoveredDatum = null;
-          hideTooltip();
+
+          if (!pinnedDatum) {
+            hoveredDatum = null;
+            hideTooltip();
+          } else {
+            hoveredDatum = null;
+          }
+
           updateCircleStyles();
 
-          if (!clusterMode) {
+          if (!clusterMode && !pinnedDatum) {
             scheduleNextAutoPopup(500);
           }
+        })
+        .on("click", function(event, d) {
+          event.stopPropagation();
+
+          autoActiveDatum = null;
+          clearAutoTimers();
+
+          if (pinnedDatum === d) {
+            pinnedDatum = null;
+            hoveredDatum = null;
+            hideTooltip();
+
+            if (!clusterMode) {
+              scheduleNextAutoPopup(500);
+            }
+          } else {
+            pinnedDatum = d;
+            hoveredDatum = null;
+            tooltip.style("display", "block").html(tooltipHTML(d));
+            positionTooltip(event.clientX, event.clientY);
+          }
+
+          updateCircleStyles();
         });
+
+      svg.on("click", function() {
+        pinnedDatum = null;
+        hoveredDatum = null;
+        hideTooltip();
+        updateCircleStyles();
+
+        if (!clusterMode) {
+          scheduleNextAutoPopup(500);
+        }
+      });
 
       function tick(elapsed) {
         const t = elapsed * TIME_SCALE;
@@ -863,8 +1370,26 @@ const searchTextNormalized = normalizeSearchText(searchText);
 
         dots.forEach(d => {
           if (clusterMode) {
-            d.x += (d.targetX - d.x) * CLUSTER_EASE;
-            d.y += (d.targetY - d.y) * CLUSTER_EASE;
+            let tx = d.targetX;
+            let ty = d.targetY;
+
+            const focusDatum = pinnedDatum || hoveredDatum;
+            const isTimelineMode = clusterMode === "timelineIssue" || clusterMode === "timelineCourt";
+
+            if (isTimelineMode && focusDatum && d !== focusDatum) {
+              const dx = d.targetX - focusDatum.targetX;
+              const dy = d.targetY - focusDatum.targetY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              if (dist > 0 && dist < HOVER_REPULSION_RADIUS) {
+                const force = (1 - dist / HOVER_REPULSION_RADIUS) * HOVER_REPULSION_STRENGTH;
+                tx += (dx / dist) * force;
+                ty += (dy / dist) * force;
+              }
+            }
+
+            d.x += (tx - d.x) * (isTimelineMode ? HOVER_REPULSION_EASE : CLUSTER_EASE);
+            d.y += (ty - d.y) * (isTimelineMode ? HOVER_REPULSION_EASE : CLUSTER_EASE);
           } else {
             const a = flowAngle(d.x, d.y, t, d.offset1, d.offset2);
 
@@ -879,10 +1404,10 @@ const searchTextNormalized = normalizeSearchText(searchText);
               d.y += Math.sin(a) * SPEED;
             }
 
-            if (d.x < -WRAP_MARGIN) d.x = width + WRAP_MARGIN;
-            if (d.x > width + WRAP_MARGIN) d.x = -WRAP_MARGIN;
-            if (d.y < -WRAP_MARGIN) d.y = height + WRAP_MARGIN;
-            if (d.y > height + WRAP_MARGIN) d.y = -WRAP_MARGIN;
+            if (d.x < chartLeft() - WRAP_MARGIN) d.x = chartRight() + WRAP_MARGIN;
+            if (d.x > chartRight() + WRAP_MARGIN) d.x = chartLeft() - WRAP_MARGIN;
+            if (d.y < chartTop() - WRAP_MARGIN) d.y = chartBottom() + WRAP_MARGIN;
+            if (d.y > chartBottom() + WRAP_MARGIN) d.y = chartTop() - WRAP_MARGIN;
           }
         });
 
@@ -891,7 +1416,9 @@ const searchTextNormalized = normalizeSearchText(searchText);
           .attr("cy", d => d.y);
 
         const activeDatum = getActiveDatum();
-        if (activeDatum && !isUserHovering && !clusterMode) {
+        if (activeDatum && pinnedDatum) {
+          positionTooltip(activeDatum.x, activeDatum.y);
+        } else if (activeDatum && !isUserHovering && !clusterMode) {
           positionTooltip(activeDatum.x, activeDatum.y);
         }
       }
@@ -903,19 +1430,39 @@ const searchTextNormalized = normalizeSearchText(searchText);
       console.error("Error loading CSV files:", error);
     });
 
-    issueClusterBtn.addEventListener("click", () => enableClusterMode("issue"));
-    courtClusterBtn.addEventListener("click", () => enableClusterMode("court"));
+    issueClusterBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      enableClusterMode("issue");
+    });
+
+    courtClusterBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      enableClusterMode("court");
+    });
+
+    timelineIssueBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      enableClusterMode("timelineIssue");
+    });
+
+    timelineCourtBtn.addEventListener("click", () => {
+      chartScroll.scrollTop = 0;
+      enableClusterMode("timelineCourt");
+    });
+
     releaseBtn.addEventListener("click", startRelease);
     searchInput.addEventListener("input", applySearchCluster);
 
     window.addEventListener("resize", () => {
-      width = window.innerWidth;
+      width = chartScroll.clientWidth;
       height = window.innerHeight;
-      svg.attr("viewBox", `0 0 ${width} ${height}`);
+      updateSvgHeightForMode();
+
       if (dots.length && clusterMode) {
         assignClusterTargets();
         updateClusterLabelVisibility();
       }
+
       updateExportBox();
     });
   </script>
