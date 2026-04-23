@@ -116,7 +116,7 @@ Promise.all([
 
   const color = d3.scaleOrdinal()
     .domain(origins)
-    .range(d3.schemeTableau10);
+    .range(["red","black"]);
 
   function render() {
     g.selectAll('*').remove();

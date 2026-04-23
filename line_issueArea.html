@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Issue Area Stacked Area Chart</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+body { font-family: Arial; margin: 0; }
+.wrap { padding: 20px; max-width: 1200px; margin: auto; }
+button { margin-right: 8px; padding: 8px 10px; }
+svg { width: 100%; height: auto; }
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid #111;
+  padding: 8px 10px;
+  font-size: 12px;
+  opacity: 0;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Issue Areas Over Time (Stacked)</h2>
+  <div>
+    <button id="countBtn">Count</button>
+    <button id="pctBtn">Percent</button>
+  </div>
+  <svg id="chart" viewBox="0 0 1000 500"></svg>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+const CSV_URL = 'SCDB_combined_caseCentered.csv';
+const LOOKUP_URL = 'issue_area.csv';
+
+const svg = d3.select('#chart');
+const tooltip = d3.select('#tooltip');
+
+const margin = {top: 20, right: 20, bottom: 40, left: 60};
+const width = 1000 - margin.left - margin.right;
+const height = 500 - margin.top - margin.bottom;
+
+const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+let mode = 'count';
+let lookup = new Map();
+
+function parseDate(d) {
+  return d3.timeParse('%Y-%m-%d')(d) || new Date(d);
+}
+
+function translate(code) {
+  if (!code) return 'Other';
+  return lookup.get(code) || 'Other';
+}
+
+Promise.all([
+  d3.csv(LOOKUP_URL),
+  d3.csv(CSV_URL)
+]).then(([lookupData, data]) => {
+
+  lookup = new Map(lookupData.map(d => [d.issue_area_code, d.issue_area]));
+
+  data.forEach(d => {
+    d.date = parseDate(d.dateDecision);
+    d.year = d.date.getFullYear();
+    d.issue = translate(d.issueArea || d.issue_area_code);
+  });
+
+  const nested = d3.rollups(
+    data,
+    v => v.length,
+    d => d.year,
+    d => d.issue
+  );
+
+  const years = nested.map(d => d[0]).sort();
+  const issues = Array.from(new Set(data.map(d => d.issue)));
+
+  const formatted = years.map(year => {
+    const row = { year };
+    const entries = nested.find(d => d[0] === year)?.[1] || [];
+
+    issues.forEach(i => {
+      const found = entries.find(e => e[0] === i);
+      row[i] = found ? found[1] : 0;
+    });
+
+    const total = d3.sum(issues.map(i => row[i]));
+    issues.forEach(i => {
+      row[i + '_pct'] = total ? row[i] / total : 0;
+    });
+
+    return row;
+  });
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(years))
+    .range([0, width]);
+
+  const color = d3.scaleOrdinal()
+    .domain(issues)
+    .range(issues.map(() => '#DBDADA'));
+
+  function render() {
+    g.selectAll('*').remove();
+
+    const stack = d3.stack()
+      .keys(issues.map(i => mode === 'count' ? i : i + '_pct'));
+
+    const series = stack(formatted);
+
+    const yMax = d3.max(series[series.length - 1], d => d[1]);
+
+    const y = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([height, 0]);
+
+    const area = d3.area()
+      .curve(d3.curveMonotoneX)
+      .x(d => x(d.data.year))
+      .y0(d => y(d[0]))
+      .y1(d => y(d[1]));
+
+    const layers = g.selectAll('.layer')
+      .data(series)
+      .join('path')
+      .attr('class', 'layer')
+      .attr('fill', '#DBDADA')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 1)
+      .attr('d', area);
+
+    g.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+
+    g.append('g')
+      .call(d3.axisLeft(y).tickFormat(mode === 'pct' ? d3.format('.0%') : d3.format(',')));
+
+    const hoverLine = g.append('line')
+      .attr('y1', 0)
+      .attr('y2', height)
+      .attr('stroke', '#DBDADA')
+      .attr('stroke-dasharray', '4 3')
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+
+    const bisectYear = d3.bisector(d => d.year).left;
+
+    g.append('rect')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', 'transparent')
+      .style('cursor', 'crosshair')
+      .on('mousemove', (event) => {
+        const [mx, my] = d3.pointer(event, g.node());
+        const hoveredYearValue = x.invert(mx);
+        const index = Math.max(0, Math.min(formatted.length - 1, bisectYear(formatted, hoveredYearValue)));
+
+        let row = formatted[index];
+        if (index > 0) {
+          const prev = formatted[index - 1];
+          row = Math.abs(prev.year - hoveredYearValue) < Math.abs(row.year - hoveredYearValue) ? prev : row;
+        }
+        if (!row) return;
+
+        const year = row.year;
+        hoverLine
+          .attr('x1', x(year))
+          .attr('x2', x(year))
+          .style('opacity', 1);
+
+        const rowIndex = formatted.findIndex(d => d.year === year);
+        if (rowIndex === -1) return;
+
+        let foundSeries = null;
+        for (const s of series) {
+          const seg = s[rowIndex];
+          const top = y(seg[1]);
+          const bottom = y(seg[0]);
+          if (my >= top && my <= bottom) {
+            foundSeries = s;
+            break;
+          }
+        }
+
+        layers.attr('fill', '#DBDADA');
+
+        if (!foundSeries) {
+          tooltip.style('opacity', 0);
+          return;
+        }
+
+        layers
+          .filter(d => d.key === foundSeries.key)
+          .attr('fill', '#ED1C24');
+
+        const issue = foundSeries.key.replace('_pct', '');
+        const value = mode === 'pct' ? row[issue + '_pct'] : row[issue];
+
+        tooltip
+          .style('opacity', 1)
+          .style('left', `${event.clientX + 10}px`)
+          .style('top', `${event.clientY + 10}px`)
+          .html(`
+            <strong>${issue}</strong><br>
+            Year: ${year}<br>
+            ${mode === 'pct' ? 'Share' : 'Count'}: ${mode === 'pct' ? d3.format('.1%')(value) : d3.format(',')(value)}
+          `);
+      })
+      .on('mouseleave', () => {
+        hoverLine.style('opacity', 0);
+        tooltip.style('opacity', 0);
+        layers.attr('fill', '#DBDADA');
+      });
+  }
+
+  document.getElementById('countBtn').onclick = () => { mode = 'count'; render(); };
+  document.getElementById('pctBtn').onclick = () => { mode = 'pct'; render(); };
+
+  render();
+});
+</script>
+</body>
+</html>
