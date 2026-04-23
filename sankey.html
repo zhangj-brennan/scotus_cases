@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supreme Court Origin Sankey Timeline</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111111;
+      --muted: #666666;
+      --line: #d9d9d9;
+      --panel: #f7f7f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .subhead {
+      color: var(--muted);
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .search-row,
+    .checkbox-row,
+    .slider-row,
+    .button-row,
+    .status-row {
+      margin-bottom: 12px;
+    }
+
+    .search-row:last-child,
+    .checkbox-row:last-child,
+    .slider-row:last-child,
+    .button-row:last-child,
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="range"],
+    button {
+      width: 100%;
+    }
+
+    input[type="text"] {
+      padding: 8px 10px;
+      border: 1px solid #bfbfbf;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    input[type="range"] {
+      accent-color: #111;
+    }
+
+    .range-wrap {
+      position: relative;
+      height: 42px;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+
+    .range-track,
+    .range-fill {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 18px;
+      height: 4px;
+      border-radius: 999px;
+    }
+
+    .range-track {
+      background: #d9d9d9;
+    }
+
+    .range-fill {
+      background: #111;
+    }
+
+    .range-wrap input[type="range"] {
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 100%;
+      margin: 0;
+      background: none;
+      pointer-events: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .range-wrap input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: transparent;
+    }
+
+    .range-wrap input[type="range"]::-moz-range-track {
+      height: 4px;
+      background: transparent;
+    }
+
+    .range-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #111;
+      border: 0;
+      margin-top: -5px;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .range-wrap input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #111;
+      border: 0;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    button {
+      border: 1px solid #111;
+      background: #111;
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: #111;
+    }
+
+    .range-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .range-value {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .chart-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .axis path,
+    .axis line {
+      stroke: #999;
+      shape-rendering: crispEdges;
+    }
+
+    .axis text {
+      fill: #444;
+      font-size: 11px;
+    }
+
+    .timeline-link {
+      fill: none;
+      stroke: #c7c7c7;
+      stroke-opacity: 0.7;
+    }
+
+    .timeline-link.active {
+      stroke: #111;
+      stroke-opacity: 0.9;
+    }
+
+    .timeline-dot {
+      fill: #111;
+      opacity: 0.8;
+    }
+
+    .timeline-dot.inactive {
+      fill: #bbb;
+      opacity: 0.45;
+    }
+
+    .node rect {
+      fill: #111;
+      stroke: #111;
+    }
+
+    .node text {
+      font-size: 12px;
+      fill: #111;
+    }
+
+    .sankey-link {
+      fill: none;
+      stroke: #111;
+      stroke-opacity: 0.2;
+      transition: stroke-opacity 120ms ease, stroke-width 120ms ease;
+    }
+
+    .sankey-link:hover {
+      stroke-opacity: 0.45;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 14px 0 2px;
+    }
+
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid #111;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      max-width: 260px;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 100ms linear;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    @media (max-width: 900px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .wrap {
+        padding: 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Case Origins to Supreme Court</h1>
+    <div class="subhead">
+      This page loads a hardcoded CSV path from the script. It uses <strong>dateDecision</strong> as time and <strong>caseOrigin</strong> as the source. All links flow to <strong>Supreme Court</strong>.
+    </div>
+
+    <div class="controls">
+      <div class="panel">
+        <div class="panel-title">Filters</div>
+
+        <div class="search-row">
+          <label for="originSearch">Filter origins</label>
+          <input id="originSearch" type="text" placeholder="Search caseOrigin values" />
+        </div>
+
+        <div class="checkbox-row">
+          <label>
+            <input id="dropMissingOrigins" type="checkbox" checked />
+            Exclude blank caseOrigin values
+          </label>
+        </div>
+
+        <div class="slider-row">
+          <label>Date range</label>
+          <div class="range-wrap">
+            <div class="range-track"></div>
+            <div class="range-fill" id="rangeFill" title="Drag selected range"></div>
+            <input id="startSlider" type="range" min="0" max="0" step="1" value="0" />
+            <input id="endSlider" type="range" min="0" max="0" step="1" value="0" />
+          </div>
+          <div class="range-grid">
+            <div class="range-value" id="startLabel">Start: —</div>
+            <div class="range-value" id="endLabel" style="text-align:right;">End: —</div>
+          </div>
+        </div>
+
+        <div class="button-row range-grid">
+          <button id="playBtn" type="button">Play</button>
+          <button id="resetBtn" type="button" class="secondary">Reset</button>
+        </div>
+
+        <div class="status-row">
+          <div class="summary" id="summary"></div>
+        </div>
+      </div>
+
+      <div class="chart-panel">
+        <div class="legend">Aggregated flows from court_type to Supreme Court for the selected date window.</div>
+        <svg id="chart" viewBox="0 0 1300 850" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="emptyState" class="empty">Loading CSV…</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    // Set this to your CSV path or URL.
+    const CSV_URL = 'SCDB_combined_caseCentered.csv';
+    // Mapping file: must have columns `case_origin_code` and `court_type`
+    const ORIGIN_LOOKUP_URL = 'case_origin_with_type.csv';
+
+
+
+    const svg = d3.select('#chart');
+    const tooltip = d3.select('#tooltip');
+    const emptyState = document.getElementById('emptyState');
+    const originSearch = document.getElementById('originSearch');
+    const dropMissingOrigins = document.getElementById('dropMissingOrigins');
+    const startSlider = document.getElementById('startSlider');
+    const endSlider = document.getElementById('endSlider');
+    const startLabel = document.getElementById('startLabel');
+    const endLabel = document.getElementById('endLabel');
+    const rangeFill = document.getElementById('rangeFill');
+    let rangeDragState = null;
+    const summary = document.getElementById('summary');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const WIDTH = 1300;
+    const HEIGHT = 650;
+    const sankeyMargin = { top: 40, right: 40, bottom: 40, left: 170 };
+    const sankeyHeight = 520;
+
+    let parsedRows = [];
+    let originLookup = new Map();
+    let playTimer = null;
+
+    const parseCandidates = [
+      d3.isoParse,
+      d3.timeParse('%Y-%m-%d'),
+      d3.timeParse('%m/%d/%Y'),
+      d3.timeParse('%m/%d/%y'),
+      d3.timeParse('%Y/%m/%d'),
+      d3.timeParse('%b %d, %Y'),
+      d3.timeParse('%B %d, %Y')
+    ];
+
+    function parseFlexibleDate(value) {
+      if (value == null) return null;
+      const str = String(value).trim();
+      if (!str) return null;
+      for (const parser of parseCandidates) {
+        const parsed = parser(str);
+        if (parsed instanceof Date && !Number.isNaN(+parsed)) return parsed;
+      }
+      const fallback = new Date(str);
+      return Number.isNaN(+fallback) ? null : fallback;
+    }
+
+    function formatLong(date) {
+      return d3.timeFormat('%b %-d, %Y')(date);
+    }
+
+    function normalizeOrigin(value) {
+      if (value == null) return '';
+      return String(value).trim();
+    }
+
+    function translateOrigin(code) {
+      if (!code) return 'Other';
+      const key = String(code).trim();
+      return originLookup.has(key) ? originLookup.get(key) : 'Other';
+    }
+
+    function stopPlayback() {
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = null;
+      }
+      playBtn.textContent = 'Play';
+    }
+
+    function syncSliderBounds() {
+      const maxIndex = Math.max(parsedRows.length - 1, 0);
+      startSlider.max = maxIndex;
+      endSlider.max = maxIndex;
+
+      if (!parsedRows.length) {
+        startSlider.value = 0;
+        endSlider.value = 0;
+        updateRangeFill();
+        return;
+      }
+
+      const latestDate = parsedRows[maxIndex].dateDecision;
+      const cutoffDate = new Date(latestDate);
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 20);
+
+      let startIndex = parsedRows.findIndex(d => d.dateDecision >= cutoffDate);
+      if (startIndex === -1) startIndex = 0;
+
+      startSlider.value = startIndex;
+      endSlider.value = maxIndex;
+      updateRangeFill();
+    }
+
+    function updateRangeFill() {
+      const min = +startSlider.min || 0;
+      const max = +startSlider.max || 0;
+      const start = +startSlider.value;
+      const end = +endSlider.value;
+      const denom = Math.max(max - min, 1);
+      const left = ((Math.min(start, end) - min) / denom) * 100;
+      const right = ((Math.max(start, end) - min) / denom) * 100;
+      rangeFill.style.left = `${left}%`;
+      rangeFill.style.right = `${100 - right}%`;
+    }
+
+    function beginRangeDrag(event) {
+      event.preventDefault();
+      const start = +startSlider.value;
+      const end = +endSlider.value;
+      rangeDragState = {
+        startX: event.clientX,
+        startValue: start,
+        endValue: end,
+        span: end - start
+      };
+      window.addEventListener('pointermove', onRangeDrag);
+      window.addEventListener('pointerup', endRangeDrag);
+    }
+
+    function onRangeDrag(event) {
+      if (!rangeDragState) return;
+
+      const trackRect = rangeFill.parentElement.getBoundingClientRect();
+      const totalSteps = Math.max((+startSlider.max || 0) - (+startSlider.min || 0), 1);
+      const dx = event.clientX - rangeDragState.startX;
+      const stepDelta = Math.round((dx / trackRect.width) * totalSteps);
+
+      let nextStart = rangeDragState.startValue + stepDelta;
+      let nextEnd = rangeDragState.endValue + stepDelta;
+      const span = rangeDragState.span;
+      const min = +startSlider.min || 0;
+      const max = +startSlider.max || 0;
+
+      if (nextStart < min) {
+        nextStart = min;
+        nextEnd = min + span;
+      }
+      if (nextEnd > max) {
+        nextEnd = max;
+        nextStart = max - span;
+      }
+
+      startSlider.value = Math.max(min, nextStart);
+      endSlider.value = Math.min(max, nextEnd);
+      updateRangeFill();
+      render();
+    }
+
+    function endRangeDrag() {
+      rangeDragState = null;
+      window.removeEventListener('pointermove', onRangeDrag);
+      window.removeEventListener('pointerup', endRangeDrag);
+    }
+
+    function currentFilters() {
+      const search = originSearch.value.trim().toLowerCase();
+      const dropBlank = dropMissingOrigins.checked;
+
+      return parsedRows.filter(d => {
+        const origin = d.caseOrigin;
+        if (dropBlank && !origin) return false;
+        if (search && !origin.toLowerCase().includes(search)) return false;
+        return true;
+      });
+    }
+
+    function selectedDateExtent(rows) {
+      if (!rows.length) return null;
+
+      const ordered = [...rows].sort((a, b) => d3.ascending(a.dateDecision, b.dateDecision));
+      const maxIndex = ordered.length - 1;
+
+      let startIndex = Math.min(+startSlider.value, maxIndex);
+      let endIndex = Math.min(+endSlider.value, maxIndex);
+      if (startIndex > endIndex) [startIndex, endIndex] = [endIndex, startIndex];
+
+      return {
+        ordered,
+        startIndex,
+        endIndex,
+        startDate: ordered[startIndex].dateDecision,
+        endDate: ordered[endIndex].dateDecision
+      };
+    }
+
+    function aggregateLinks(activeRows) {
+      return d3.rollups(
+        activeRows,
+        values => values.length,
+        d => d.caseOrigin || 'Unknown origin'
+      )
+      .map(([origin, value]) => ({ source: origin, target: 'Supreme Court', value }))
+      .sort((a, b) => d3.descending(a.value, b.value) || d3.ascending(a.source, b.source));
+    }
+
+    function buildSankeyData(activeRows) {
+      const links = aggregateLinks(activeRows);
+      const nodeNames = Array.from(new Set([
+        ...links.map(d => d.source),
+        'Supreme Court'
+      ]));
+
+      return {
+        nodes: nodeNames.map(name => ({ name })),
+        links: links.map(d => ({ ...d }))
+      };
+    }
+
+    function updateSummary(filteredRows, activeRows, extent) {
+      const totalCases = filteredRows.length;
+      const activeCases = activeRows.length;
+      const origins = new Set(activeRows.map(d => d.caseOrigin || 'Unknown origin')).size;
+
+      const bits = [];
+      bits.push(`<span>Filtered cases: <strong>${d3.format(',')(totalCases)}</strong></span>`);
+      bits.push(`<span>In range: <strong>${d3.format(',')(activeCases)}</strong></span>`);
+      bits.push(`<span>Origins shown: <strong>${d3.format(',')(origins)}</strong></span>`);
+
+      if (extent) {
+        bits.push(`<span>Window: <strong>${formatLong(extent.startDate)}</strong> to <strong>${formatLong(extent.endDate)}</strong></span>`);
+      }
+
+      summary.innerHTML = bits.join('');
+    }
+
+    function showTooltip(event, html) {
+      tooltip.html(html)
+        .style('opacity', 1)
+        .style('left', `${event.clientX + 14}px`)
+        .style('top', `${event.clientY + 14}px`);
+    }
+
+    function hideTooltip() {
+      tooltip.style('opacity', 0);
+    }
+
+    function render() {
+      svg.selectAll('*').remove();
+      stopPlayback();
+
+      if (!parsedRows.length) {
+        emptyState.style.display = 'block';
+        emptyState.textContent = `Could not load CSV from ${CSV_URL}`;
+        summary.innerHTML = '';
+        startLabel.textContent = 'Start: —';
+        endLabel.textContent = 'End: —';
+        return;
+      }
+
+      const filteredRows = currentFilters();
+      const extent = selectedDateExtent(filteredRows);
+
+      if (!filteredRows.length || !extent) {
+        emptyState.style.display = 'block';
+        emptyState.textContent = 'No rows match the current filters.';
+        updateSummary(filteredRows, [], null);
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      startLabel.textContent = `Start: ${formatLong(extent.startDate)}`;
+      endLabel.textContent = `End: ${formatLong(extent.endDate)}`;
+
+      const activeRows = extent.ordered.slice(extent.startIndex, extent.endIndex + 1);
+      updateSummary(filteredRows, activeRows, extent);
+      renderSankey(activeRows);
+    }
+
+    function renderSankey(activeRows) {
+      const data = buildSankeyData(activeRows);
+      const g = svg.append('g').attr('transform', `translate(${sankeyMargin.left},${sankeyMargin.top})`);
+      const innerWidth = WIDTH - sankeyMargin.left - sankeyMargin.right;
+      const innerHeight = sankeyHeight;
+
+      if (!data.links.length) {
+        g.append('text')
+          .attr('x', 0)
+          .attr('y', 20)
+          .attr('fill', '#666')
+          .attr('font-size', 14)
+          .text('No flows in the selected range.');
+        return;
+      }
+
+      const sankey = d3.sankey()
+        .nodeId(d => d.name)
+        .nodeWidth(18)
+        .nodePadding(8)
+        .extent([[0, 0], [innerWidth, innerHeight]])
+        .nodeAlign(d3.sankeyJustify)
+        .nodeSort((a, b) => d3.ascending(a.name, b.name));
+
+      const graph = sankey({
+        nodes: data.nodes.map(d => ({ ...d })),
+        links: data.links.map(d => ({ ...d }))
+      });
+
+      g.append('g')
+        .selectAll('path')
+        .data(graph.links)
+        .join('path')
+        .attr('class', 'sankey-link')
+        .attr('d', d3.sankeyLinkHorizontal())
+        .attr('stroke-width', d => Math.max(1, d.width))
+        .on('mousemove', (event, d) => {
+          showTooltip(event, `
+            <strong>${d.source.name}</strong> → <strong>${d.target.name}</strong><br>
+            Cases in range: ${d.value}
+          `);
+        })
+        .on('mouseleave', hideTooltip);
+
+      const node = g.append('g')
+        .selectAll('g')
+        .data(graph.nodes)
+        .join('g')
+        .attr('class', 'node');
+
+      node.append('rect')
+        .attr('x', d => d.x0)
+        .attr('y', d => d.y0)
+        .attr('width', d => d.x1 - d.x0)
+        .attr('height', d => Math.max(1, d.y1 - d.y0));
+
+      node.append('text')
+        .attr('x', d => d.x0 < innerWidth / 2 ? d.x0 - 8 : d.x1 + 8)
+        .attr('y', d => (d.y0 + d.y1) / 2)
+        .attr('dy', '0.35em')
+        .attr('text-anchor', d => d.x0 < innerWidth / 2 ? 'end' : 'start')
+        .text(d => d.name);
+    }
+
+    async function loadCsvFromUrl() {
+      try {
+        emptyState.style.display = 'block';
+        emptyState.textContent = 'Loading CSV…';
+
+        // load lookup first
+        const lookupRows = await d3.csv(ORIGIN_LOOKUP_URL);
+        originLookup = new Map(
+          lookupRows.map(d => [String(d.case_origin_code).trim(), String(d.court_type).trim()])
+        );
+
+        const rows = await d3.csv(CSV_URL);
+        parsedRows = rows
+          .map((row, index) => ({
+            ...row,
+            __index: index,
+            caseName: row.caseName || row.name || row.case || '',
+            caseOrigin: translateOrigin(normalizeOrigin(row.caseOrigin || row.case_origin_code)),
+            dateDecision: parseFlexibleDate(row.dateDecision)
+          }))
+          .filter(d => d.dateDecision instanceof Date && !Number.isNaN(+d.dateDecision))
+          .sort((a, b) => d3.ascending(a.dateDecision, b.dateDecision));
+
+        syncSliderBounds();
+        updateRangeFill();
+        render();
+      } catch (error) {
+        parsedRows = [];
+        svg.selectAll('*').remove();
+        emptyState.style.display = 'block';
+        emptyState.textContent = `Could not load CSV from ${CSV_URL}`;
+        summary.innerHTML = '';
+        console.error(error);
+      }
+    }
+
+    originSearch.addEventListener('input', render);
+    dropMissingOrigins.addEventListener('change', render);
+    startSlider.addEventListener('input', () => {
+      if (+startSlider.value > +endSlider.value) startSlider.value = endSlider.value;
+      updateRangeFill();
+      render();
+    });
+    endSlider.addEventListener('input', () => {
+      if (+endSlider.value < +startSlider.value) endSlider.value = startSlider.value;
+      updateRangeFill();
+      render();
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (!parsedRows.length) return;
+
+      if (playTimer) {
+        stopPlayback();
+        return;
+      }
+
+      playBtn.textContent = 'Pause';
+      startSlider.value = 0;
+      endSlider.value = 0;
+      updateRangeFill();
+      render();
+
+      playTimer = setInterval(() => {
+        let endValue = +endSlider.value;
+        const maxValue = +endSlider.max;
+
+        if (endValue >= maxValue) {
+          stopPlayback();
+          return;
+        }
+
+        endValue += 1;
+        endSlider.value = endValue;
+        render();
+      }, 220);
+    });
+
+    rangeFill.addEventListener('pointerdown', beginRangeDrag);
+
+    resetBtn.addEventListener('click', () => {
+      stopPlayback();
+      originSearch.value = '';
+      dropMissingOrigins.checked = true;
+      syncSliderBounds();
+      updateRangeFill();
+      render();
+    });
+
+    loadCsvFromUrl();
+  </script>

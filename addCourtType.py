@@ -1,7 +1,7 @@
 import csv
 
-input_file = "case_origin.csv"
-output_file = "case_origin_with_type.csv"
+input_file = "case_origin_all.csv"
+output_file = "case_origin_with_type_all.csv"
 
 unique_courts = set()
 
@@ -12,6 +12,8 @@ def classify(court_name):
         return "Court of Appeals"
     elif "u.s. district court" in name:
         return "U.S. District Court"
+    elif "u.s. circuit" in name:
+        return "U.S. Circuit Court"
     else:
         unique_courts.add(court_name)
         return court_name

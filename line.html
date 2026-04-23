@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stacked Case Origins Over Time</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+body { font-family: Arial; margin: 0; }
+.wrap { padding: 20px; max-width: 1200px; margin: auto; }
+button { margin-right: 8px; padding: 8px 10px; }
+svg { width: 100%; height: auto; }
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid #111;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0;
+}
+.hover-line {
+  stroke: #111;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+.layer {
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Case Origins Over Time</h2>
+  <div>
+    <button id="countBtn">Count</button>
+    <button id="pctBtn">Percent</button>
+  </div>
+  <svg id="chart" viewBox="0 0 1000 500"></svg>
+  <div id="tooltip" class="tooltip"></div>
+</div>
+
+<script>
+
+
+    // Set this to your CSV path or URL.
+    const CSV_URL = 'SCDB_combined_caseCentered.csv';
+    // Mapping file: must have columns `case_origin_code` and `court_type`
+    const LOOKUP_URL = 'case_origin_with_type.csv';
+
+
+const svg = d3.select('#chart');
+const margin = {top: 20, right: 20, bottom: 40, left: 60};
+const width = 1000 - margin.left - margin.right;
+const height = 500 - margin.top - margin.bottom;
+
+const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+const tooltip = d3.select('#tooltip');
+
+let mode = 'count';
+let originLookup = new Map();
+
+function parseDate(d) {
+  return d3.timeParse('%Y-%m-%d')(d) || new Date(d);
+}
+
+function translate(code) {
+  if (!code) return 'Other';
+  return originLookup.get(code) || 'Other';
+}
+
+Promise.all([
+  d3.csv(LOOKUP_URL),
+  d3.csv(CSV_URL)
+]).then(([lookup, data]) => {
+
+  originLookup = new Map(lookup.map(d => [d.case_origin_code, d.court_type]));
+
+  data.forEach(d => {
+    d.date = parseDate(d.dateDecision);
+    d.year = d.date.getFullYear();
+    d.origin = translate(d.caseOrigin || d.case_origin_code);
+  });
+
+  const nested = d3.rollups(
+    data,
+    v => v.length,
+    d => d.year,
+    d => d.origin
+  );
+
+  const years = nested.map(d => d[0]).sort();
+  const origins = Array.from(new Set(data.map(d => d.origin)));
+
+  const formatted = years.map(year => {
+    const row = { year };
+    const entries = nested.find(d => d[0] === year)?.[1] || [];
+    origins.forEach(o => {
+      const found = entries.find(e => e[0] === o);
+      row[o] = found ? found[1] : 0;
+    });
+
+    const total = d3.sum(origins.map(o => row[o]));
+    origins.forEach(o => {
+      row[o + '_pct'] = total ? row[o] / total : 0;
+    });
+
+    return row;
+  });
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(years))
+    .range([0, width]);
+
+  const color = d3.scaleOrdinal()
+    .domain(origins)
+    .range(d3.schemeTableau10);
+
+  function render() {
+    g.selectAll('*').remove();
+
+    const stack = d3.stack()
+      .keys(origins.map(o => mode === 'count' ? o : o + '_pct'));
+
+    const series = stack(formatted);
+
+    const yMax = d3.max(series[series.length - 1], d => d[1]);
+
+    const y = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([height, 0]);
+
+    const area = d3.area()
+      .curve(d3.curveMonotoneX)
+      .x(d => x(d.data.year))
+      .y0(d => y(d[0]))
+      .y1(d => y(d[1]));
+
+    // hover line will be appended after layers so it renders on top
+    let hoverLine;
+
+    const layers = g.selectAll('.layer')
+      .data(series)
+      .join('path')
+      .attr('class', 'layer')
+      .attr('fill', d => color(d.key.replace('_pct','')))
+      .attr('d', area)
+      .on('mousemove', function(event, seriesDatum) {
+        const [mx] = d3.pointer(event, g.node());
+        const hoveredYear = Math.round(x.invert(mx));
+        const row = formatted.find(d => d.year === hoveredYear);
+        if (!row) return;
+
+        const origin = seriesDatum.key.replace('_pct', '');
+        const value = mode === 'pct' ? row[origin + '_pct'] : row[origin];
+
+        hoverLine
+          .attr('x1', x(hoveredYear))
+          .attr('x2', x(hoveredYear))
+          .style('opacity', 1);
+
+        tooltip
+          .style('opacity', 1)
+          .style('left', `${event.clientX + 12}px`)
+          .style('top', `${event.clientY + 12}px`)
+          .html(`
+            <strong>${origin}</strong><br>
+            Year: ${hoveredYear}<br>
+            ${mode === 'pct' ? 'Share' : 'Count'}: ${mode === 'pct' ? d3.format('.1%')(value) : d3.format(',')(value)}
+          `);
+      })
+      .on('mouseleave', function() {
+        hoverLine.style('opacity', 0);
+        tooltip.style('opacity', 0);
+      });
+
+    // append hover line AFTER layers so it's on top
+    hoverLine = g.append('line')
+      .attr('class', 'hover-line')
+      .attr('y1', 0)
+      .attr('y2', height)
+      .style('opacity', 0);
+
+    g.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+
+    g.append('g')
+      .call(d3.axisLeft(y).tickFormat(mode === 'pct' ? d3.format('.0%') : d3.format(',')));
+  }
+
+  document.getElementById('countBtn').onclick = () => { mode = 'count'; render(); };
+  document.getElementById('pctBtn').onclick = () => { mode = 'pct'; render(); };
+
+  render();
+});
+</script>
+</body>
+</html>

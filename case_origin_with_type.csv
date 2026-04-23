@@ -1,12 +1,12 @@
 case_origin_code,case_origin,court_type
 1,U.S. Court of Customs and Patent Appeals,U.S. Court of Customs and Patent Appeals
 2,U.S. Court of International Trade,U.S. Court of International Trade
-3,U.S. Court of Claims Court of Federal Claims,U.S. Court of Claims Court of Federal Claims
-4,U.S. Court of Military Appeals Court of Appeals for the Armed Forces,Court of Appeals
+3,U.S. Court of Claims,U.S. Court of Claims
+4,U.S. Court of Military Appeals,U.S. Court of Military Appeals
 5,U.S. Court of Military Review,U.S. Court of Military Review
 6,U.S. Court of Veterans Appeals,U.S. Court of Veterans Appeals
 7,U.S. Customs Court,U.S. Customs Court
-8,U.S. Court of Appeals Federal Circuit,Court of Appeals
+8,U.S. Court of Appeals,Court of Appeals
 9,U.S. Tax Court,U.S. Tax Court
 10,Temporary Emergency U.S. Court of Appeals,Court of Appeals
 12,U.S. Court for China,U.S. Court for China
@@ -18,18 +18,18 @@ case_origin_code,case_origin,court_type
 18,Emergency Court of Appeals,Court of Appeals
 19,Supreme Court of the District of Columbia,Supreme Court of the District of Columbia
 20,Bankruptcy Court,Bankruptcy Court
-21,U.S. Court of Appeals First Circuit,Court of Appeals
-22,U.S. Court of Appeals Second Circuit,Court of Appeals
-23,U.S. Court of Appeals Third Circuit,Court of Appeals
-24,U.S. Court of Appeals Fourth Circuit,Court of Appeals
-25,U.S. Court of Appeals Fifth Circuit,Court of Appeals
-26,U.S. Court of Appeals Sixth Circuit,Court of Appeals
-27,U.S. Court of Appeals Seventh Circuit,Court of Appeals
-28,U.S. Court of Appeals Eighth Circuit,Court of Appeals
-29,U.S. Court of Appeals Ninth Circuit,Court of Appeals
-30,U.S. Court of Appeals Tenth Circuit,Court of Appeals
-31,U.S. Court of Appeals Eleventh Circuit,Court of Appeals
-32,U.S. Court of Appeals District of Columbia Circuit,Court of Appeals
+21,U.S. Court of Appeals,Court of Appeals
+22,U.S. Court of Appeals,Court of Appeals
+23,U.S. Court of Appeals,Court of Appeals
+24,U.S. Court of Appeals,Court of Appeals
+25,U.S. Court of Appeals,Court of Appeals
+26,U.S. Court of Appeals,Court of Appeals
+27,U.S. Court of Appeals,Court of Appeals
+28,U.S. Court of Appeals,Court of Appeals
+29,U.S. Court of Appeals,Court of Appeals
+30,U.S. Court of Appeals,Court of Appeals
+31,U.S. Court of Appeals,Court of Appeals
+32,U.S. Court of Appeals,Court of Appeals
 41,Alabama Middle U.S. District Court,U.S. District Court
 42,Alabama Northern U.S. District Court,U.S. District Court
 43,Alabama Southern U.S. District Court,U.S. District Court
@@ -44,7 +44,7 @@ case_origin_code,case_origin,court_type
 52,Colorado U.S. District Court,U.S. District Court
 53,Connecticut U.S. District Court,U.S. District Court
 54,Delaware U.S. District Court,U.S. District Court
-55,District of Columbia U.S. District Court,U.S. District Court
+55,District Of Columbia U.S. District Court,U.S. District Court
 56,Florida Middle U.S. District Court,U.S. District Court
 57,Florida Northern U.S. District Court,U.S. District Court
 58,Florida Southern U.S. District Court,U.S. District Court
@@ -131,7 +131,7 @@ case_origin_code,case_origin,court_type
 155,South Carolina Eastern U.S. District Court,U.S. District Court
 160,South Carolina Western U.S. District Court,U.S. District Court
 162,Alabama U.S. District Court,U.S. District Court
-163,U.S. District Court Canal Zone,U.S. District Court
+163,U.S. District Court for the Canal Zone,U.S. District Court
 164,Georgia U.S. District Court,U.S. District Court
 165,Illinois U.S. District Court,U.S. District Court
 166,Indiana U.S. District Court,U.S. District Court
@@ -139,8 +139,8 @@ case_origin_code,case_origin,court_type
 168,Michigan U.S. District Court,U.S. District Court
 169,Mississippi U.S. District Court,U.S. District Court
 170,Missouri U.S. District Court,U.S. District Court
-171,New Jersey Eastern U.S. District Court,U.S. District Court
-172,New Jersey Western U.S. District Court,U.S. District Court
+171,New Jersey Eastern U.S. District Court (East Jersey U.S. District Court),U.S. District Court
+172,New Jersey Western U.S. District Court (West Jersey U.S. District Court),U.S. District Court
 173,New York U.S. District Court,U.S. District Court
 174,North Carolina U.S. District Court,U.S. District Court
 175,Ohio U.S. District Court,U.S. District Court
@@ -150,7 +150,7 @@ case_origin_code,case_origin,court_type
 179,Virginia U.S. District Court,U.S. District Court
 180,Norfolk U.S. District Court,U.S. District Court
 181,Wisconsin U.S. District Court,U.S. District Court
-182,Kentucky U.S. District Court,U.S. District Court
+182,Kentucky U.S. Distrcrict Court,Kentucky U.S. Distrcrict Court
 183,New Jersey U.S. District Court,U.S. District Court
 184,California U.S. District Court,U.S. District Court
 185,Florida U.S. District Court,U.S. District Court
@@ -159,8 +159,54 @@ case_origin_code,case_origin,court_type
 300,State Supreme Court,State Supreme Court
 301,State Appellate Court,State Appellate Court
 302,State Trial Court,State Trial Court
-400,Eastern Circuit United States,Eastern Circuit United States
-401,Middle Circuit United States,Middle Circuit United States
-402,Southern Circuit United States,Southern Circuit United States
-440,Circuit Court District of Columbia,Circuit Court District of Columbia
+400,Eastern Circuit (of the United States),Eastern Circuit (of the United States)
+401,Middle Circuit (of the United States),Middle Circuit (of the United States)
+402,Southern Circuit (of the United States),Southern Circuit (of the United States)
+403,Alabama U.S. Circuit Court for (all) District(s) of Alabama,U.S. Circuit Court
+404,Arkansas U.S. Circuit Court for (all) District(s) of Arkansas,U.S. Circuit Court
+405,California U.S. Circuit for (all) District(s) of California,U.S. Circuit Court
+406,Connecticut U.S. Circuit for the District of Connecticut,U.S. Circuit Court
+407,Delaware U.S. Circuit for the District of Delaware,U.S. Circuit Court
+408,Florida U.S. Circuit for (all) District(s) of Florida,U.S. Circuit Court
+409,Georgia U.S. Circuit for (all) District(s) of Georgia,U.S. Circuit Court
+410,Illinois U.S. Circuit for (all) District(s) of Illinois,U.S. Circuit Court
+411,Indiana U.S. Circuit for (all) District(s) of Indiana,U.S. Circuit Court
+412,Iowa U.S. Circuit for (all) District(s) of Iowa,U.S. Circuit Court
+413,Kansas U.S. Circuit for the District of Kansas,U.S. Circuit Court
+414,Kentucky U.S. Circuit for (all) District(s) of Kentucky,U.S. Circuit Court
+415,Louisiana U.S. Circuit for (all) District(s) of Louisiana,U.S. Circuit Court
+416,Maine U.S. Circuit for the District of Maine,U.S. Circuit Court
+417,Maryland U.S. Circuit for the District of Maryland,U.S. Circuit Court
+418,Massachusetts U.S. Circuit for the District of Massachusetts,U.S. Circuit Court
+419,Michigan U.S. Circuit for (all) District(s) of Michigan,U.S. Circuit Court
+420,Minnesota U.S. Circuit for the District of Minnesota,U.S. Circuit Court
+421,Mississippi U.S. Circuit for (all) District(s) of Mississippi,U.S. Circuit Court
+422,Missouri U.S. Circuit for (all) District(s) of Missouri,U.S. Circuit Court
+423,Nevada U.S. Circuit for the District of Nevada,U.S. Circuit Court
+424,New Hampshire U.S. Circuit for the District of New Hampshire,U.S. Circuit Court
+425,New Jersey U.S. Circuit for (all) District(s) of New Jersey,U.S. Circuit Court
+426,New York U.S. Circuit for (all) District(s) of New York,U.S. Circuit Court
+427,North Carolina U.S. Circuit for (all) District(s) of North Carolina,U.S. Circuit Court
+428,Ohio U.S. Circuit for (all) District(s) of Ohio,U.S. Circuit Court
+429,Oregon U.S. Circuit for the District of Oregon,U.S. Circuit Court
+430,Pennsylvania U.S. Circuit for (all) District(s) of Pennsylvania,U.S. Circuit Court
+431,Rhode Island U.S. Circuit for the District of Rhode Island,U.S. Circuit Court
+432,South Carolina U.S. Circuit for the District of South Carolina,U.S. Circuit Court
+433,Tennessee U.S. Circuit for (all) District(s) of Tennessee,U.S. Circuit Court
+434,Texas U.S. Circuit for (all) District(s) of Texas,U.S. Circuit Court
+435,Vermont U.S. Circuit for the District of Vermont,U.S. Circuit Court
+436,Virginia U.S. Circuit for (all) District(s) of Virginia,U.S. Circuit Court
+437,West Virginia U.S. Circuit for (all) District(s) of West Virginia,U.S. Circuit Court
+438,Wisconsin U.S. Circuit for (all) District(s) of Wisconsin,U.S. Circuit Court
+439,Wyoming U.S. Circuit for the District of Wyoming,U.S. Circuit Court
+440,Circuit Court of the District of Columbia,Circuit Court of the District of Columbia
+441,Nebraska U.S. Circuit for the District of Nebraska,U.S. Circuit Court
+442,Colorado U.S. Circuit for the District of Colorado,U.S. Circuit Court
+443,Washington U.S. Circuit for (all) District(s) of Washington,U.S. Circuit Court
+444,Idaho U.S. Circuit Court for (all) District(s) of Idaho,U.S. Circuit Court
+445,Montana U.S. Circuit Court for (all) District(s) of Montana,U.S. Circuit Court
+446,Utah U.S. Circuit Court for (all) District(s) of Utah,U.S. Circuit Court
+447,South Dakota U.S. Circuit Court for (all) District(s) of South Dakota,U.S. Circuit Court
+448,North Dakota U.S. Circuit Court for (all) District(s) of North Dakota,U.S. Circuit Court
+449,Oklahoma U.S. Circuit Court for (all) District(s) of Oklahoma,U.S. Circuit Court
 601,Court of Private Land Claims,Court of Private Land Claims
