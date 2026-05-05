@@ -5,62 +5,92 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Stacked Case Origins Over Time</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+
 <style>
-body { font-family: Arial; margin: 0; }
+      @font-face {
+  font-family: "Benton";
+  src: url("Benton Sans/Benton Sans Book.otf");
+}
+
+@font-face {
+  font-family: "BentonStrong";
+  src: url("Benton Sans/Benton Sans Bold.otf");
+}
+
+@font-face {
+  font-family: "BentonMedium";
+  src: url("Benton Sans/Benton Sans Medium.otf");
+}
+
+body { font-family: "Benton"; margin: 0; }
 .wrap { padding: 20px; max-width: 1200px; margin: auto; }
 button { margin-right: 8px; padding: 8px 10px; }
 svg { width: 100%; height: auto; }
+
 .tooltip {
   position: fixed;
   pointer-events: none;
   background: rgba(255,255,255,0.96);
-  border: 1px solid #111;
+  border: 1px solid #000;
   padding: 8px 10px;
   font-size: 12px;
   line-height: 1.35;
   opacity: 0;
 }
+
 .hover-line {
-  stroke: #111;
+  stroke: #000;
   stroke-width: 1;
   stroke-dasharray: 4 3;
   pointer-events: none;
 }
+
 .layer {
   cursor: pointer;
 }
+.button{
+  background-color:white;
+  border:1px solid black;
+}
 </style>
 </head>
+
 <body>
 <div class="wrap">
   <h2>Case Origins Over Time</h2>
+
   <div>
-    <button id="countBtn">Count</button>
-    <button id="pctBtn">Percent</button>
+    <button class="button" id="bin1Btn">1 year</button>
+    <button class="button" id="bin2Btn">2 years</button>
+    <button class="button" id="bin5Btn">5 years</button>
   </div>
+
   <svg id="chart" viewBox="0 0 1000 500"></svg>
   <div id="tooltip" class="tooltip"></div>
 </div>
 
 <script>
 
-
-    // Set this to your CSV path or URL.
-    const CSV_URL = 'SCDB_combined_caseCentered.csv';
-    // Mapping file: must have columns `case_origin_code` and `court_type`
-    const LOOKUP_URL = 'case_origin_with_type.csv';
-
+// FILE PATHS
+const CSV_URL = 'SCDB_combined_caseCentered.csv';
+const LOOKUP_URL = 'case_origin_with_type.csv';
 
 const svg = d3.select('#chart');
 const margin = {top: 20, right: 20, bottom: 40, left: 60};
 const width = 1000 - margin.left - margin.right;
 const height = 500 - margin.top - margin.bottom;
 
-const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+const g = svg.append('g')
+  .attr('transform', `translate(${margin.left},${margin.top})`);
+
 const tooltip = d3.select('#tooltip');
 
-let mode = 'count';
 let originLookup = new Map();
+let binSize = 1;
+
+// ---------------------
+// HELPERS
+// ---------------------
 
 function parseDate(d) {
   return d3.timeParse('%Y-%m-%d')(d) || new Date(d);
@@ -71,65 +101,115 @@ function translate(code) {
   return originLookup.get(code) || 'Other';
 }
 
+function getBinYear(year) {
+  if (binSize === 1) return year;
+  return Math.floor(year / binSize) * binSize;
+}
+
+function formatBinLabel(year) {
+  if (binSize === 1) return String(year);
+  return `${year}–${year + binSize - 1}`;
+}
+
+// ---------------------
+// LOAD DATA
+// ---------------------
+
 Promise.all([
   d3.csv(LOOKUP_URL),
   d3.csv(CSV_URL)
 ]).then(([lookup, data]) => {
 
-  originLookup = new Map(lookup.map(d => [d.case_origin_code, d.court_type]));
+  originLookup = new Map(
+    lookup.map(d => [d.case_origin_code, d.court_type])
+  );
 
   data.forEach(d => {
     d.date = parseDate(d.dateDecision);
     d.year = d.date.getFullYear();
     d.origin = translate(d.caseOrigin || d.case_origin_code);
   });
+const COLORS_20 = [
+  "#4E79A7", // blue
+  "#F28E2B", // orange
+  "#E15759", // red
+  "#76B7B2", // teal
+  "#59A14F", // green
+  "#EDC948", // yellow
+  "#B07AA1", // purple
+  "#FF9DA7", // pink
+  "#9C755F", // brown
+  "#BAB0AC", // gray
 
-  const nested = d3.rollups(
-    data,
-    v => v.length,
-    d => d.year,
-    d => d.origin
-  );
-
-  const years = nested.map(d => d[0]).sort();
-  const origins = Array.from(new Set(data.map(d => d.origin)));
-
-  const formatted = years.map(year => {
-    const row = { year };
-    const entries = nested.find(d => d[0] === year)?.[1] || [];
-    origins.forEach(o => {
-      const found = entries.find(e => e[0] === o);
-      row[o] = found ? found[1] : 0;
-    });
-
-    const total = d3.sum(origins.map(o => row[o]));
-    origins.forEach(o => {
-      row[o + '_pct'] = total ? row[o] / total : 0;
-    });
-
-    return row;
-  });
-
-  const x = d3.scaleLinear()
-    .domain(d3.extent(years))
-    .range([0, width]);
-
+  "#1F77B4", // alt blue
+  "#FF7F0E", // alt orange
+  "#2CA02C", // alt green
+  "#D62728", // alt red
+  "#9467BD", // alt purple
+  "#8C564B", // alt brown
+  "#E377C2", // alt pink
+  "#7F7F7F", // alt gray
+  "#BCBD22", // olive
+  "#17BECF"  // cyan
+];
   const color = d3.scaleOrdinal()
-    .domain(origins)
-    .range(["red","black"]);
+    .domain(Array.from(new Set(data.map(d => d.origin))))
+    .range(COLORS_20
+);
+
+  // ---------------------
+  // RENDER
+  // ---------------------
 
   function render() {
+
     g.selectAll('*').remove();
 
+    // apply binning
+    data.forEach(d => {
+      d.binYear = getBinYear(d.year);
+    });
+
+    const nested = d3.rollups(
+      data,
+      v => v.length,
+      d => d.binYear,
+      d => d.origin
+    );
+
+    const years = nested.map(d => d[0]).sort((a,b) => a-b);
+    const origins = Array.from(new Set(data.map(d => d.origin)));
+
+    const formatted = years.map(year => {
+      const row = { year };
+      const entries = nested.find(d => d[0] === year)?.[1] || [];
+
+      origins.forEach(o => {
+        const found = entries.find(e => e[0] === o);
+        row[o] = found ? found[1] : 0;
+      });
+
+      return row;
+    });
+
+    const x = d3.scaleLinear()
+      .domain(d3.extent(years))
+      .range([0, width]);
+
     const stack = d3.stack()
-      .keys(origins.map(o => mode === 'count' ? o : o + '_pct'));
+      .keys(origins)
+      .offset(d3.stackOffsetWiggle)
+      .order(d3.stackOrderInsideOut);
 
     const series = stack(formatted);
 
-    const yMax = d3.max(series[series.length - 1], d => d[1]);
+    const yExtent = [
+      d3.min(series, s => d3.min(s, d => d[0])),
+      d3.max(series, s => d3.max(s, d => d[1]))
+    ];
 
     const y = d3.scaleLinear()
-      .domain([0, yMax])
+      .domain(yExtent)
       .range([height, 0]);
 
     const area = d3.area()
@@ -138,23 +218,24 @@ Promise.all([
       .y0(d => y(d[0]))
       .y1(d => y(d[1]));
 
-    // hover line will be appended after layers so it renders on top
     let hoverLine;
 
-    const layers = g.selectAll('.layer')
+    // layers
+    g.selectAll('.layer')
       .data(series)
       .join('path')
       .attr('class', 'layer')
-      .attr('fill', d => color(d.key.replace('_pct','')))
+      .attr('fill', d => color(d.key))
       .attr('d', area)
       .on('mousemove', function(event, seriesDatum) {
+
         const [mx] = d3.pointer(event, g.node());
         const hoveredYear = Math.round(x.invert(mx));
         const row = formatted.find(d => d.year === hoveredYear);
         if (!row) return;
 
-        const origin = seriesDatum.key.replace('_pct', '');
-        const value = mode === 'pct' ? row[origin + '_pct'] : row[origin];
+        const origin = seriesDatum.key;
+        const value = row[origin];
 
         hoverLine
           .attr('x1', x(hoveredYear))
@@ -167,8 +248,8 @@ Promise.all([
           .style('top', `${event.clientY + 12}px`)
           .html(`
             <strong>${origin}</strong><br>
-            Year: ${hoveredYear}<br>
-            ${mode === 'pct' ? 'Share' : 'Count'}: ${mode === 'pct' ? d3.format('.1%')(value) : d3.format(',')(value)}
+            Years: ${formatBinLabel(hoveredYear)}<br>
+            Count: ${d3.format(',')(value)}
           `);
       })
       .on('mouseleave', function() {
@@ -176,26 +257,30 @@ Promise.all([
         tooltip.style('opacity', 0);
       });
 
-    // append hover line AFTER layers so it's on top
     hoverLine = g.append('line')
       .attr('class', 'hover-line')
       .attr('y1', 0)
       .attr('y2', height)
       .style('opacity', 0);
 
+    // axes
     g.append('g')
-      .attr('transform', `translate(0,${height})`)
-      .call(d3.axisBottom(x).tickFormat(d3.format('d')));
-
-    g.append('g')
-      .call(d3.axisLeft(y).tickFormat(mode === 'pct' ? d3.format('.0%') : d3.format(',')));
+      .attr('transform', `translate(0,${height/2})`)
+      .call(d3.axisBottom(x).tickFormat(d => formatBinLabel(d)));
   }
 
-  document.getElementById('countBtn').onclick = () => { mode = 'count'; render(); };
-  document.getElementById('pctBtn').onclick = () => { mode = 'pct'; render(); };
+  // ---------------------
+  // BUTTONS
+  // ---------------------
+
+  document.getElementById('bin1Btn').onclick = () => { binSize = 1; render(); };
+  document.getElementById('bin2Btn').onclick = () => { binSize = 2; render(); };
+  document.getElementById('bin5Btn').onclick = () => { binSize = 5; render(); };
 
   render();
+
 });
+
 </script>
 </body>
 </html>
