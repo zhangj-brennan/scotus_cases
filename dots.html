@@ -6,6 +6,21 @@
   <title>Case Dots (Cluster by Issue Area or Court Type)</title>
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <style>
+    @font-face {
+  font-family: "Benton";
+  src: url("Benton Sans/Benton Sans Book.otf");
+}
+
+@font-face {
+  font-family: "BentonStrong";
+  src: url("Benton Sans/Benton Sans Bold.otf");
+}
+
+@font-face {
+  font-family: "BentonMedium";
+  src: url("Benton Sans/Benton Sans Medium.otf");
+}
+
     html, body {
       margin: 0;
       padding: 0;
@@ -13,7 +28,7 @@
       height: 100%;
       overflow: hidden;
       background: #ffffff;
-      font-family: Arial, sans-serif;
+      font-family: "Benton", sans-serif;
     }
 
     .overlay-box {
@@ -55,8 +70,9 @@
 
     .overlay-box h1 {
       margin: 0 0 8px 0;
-      line-height: 1.1;
+      line-height: 1.4;
       font-weight: 700;
+      letter-spacing:.5px;
     }
 
     .overlay-box p {
@@ -255,27 +271,29 @@
 
   
 
- <div class="controls">
-      <button id="issueClusterBtn">What are these cases about?</button>
-      <button id="courtClusterBtn">Where do they come from? </button>
-      <button id="timelineIssueBtn">How has different issues changed over time?</button>
-      <button id="timelineCourtBtn">Have caseloads from lower courts changed over time?</button>
-      <button id="timelineOverallBtn">Is the caseload smaller now than before? </button>
-      <button id="matrixCourtIssueBtn">Which lower courts deals with what issues?</button>
-    </div>
-Search 1 - use to cluster
+ <div class="controls">LAYOUTS
+      <button id="issueClusterBtn">Issue Area</button>
+      <button id="courtClusterBtn">Lower Courts </button>
+           <button id="matrixCourtIssueBtn">Courts and Issues</button>
     <input id="searchInput" class="search-input" type="text" placeholder="Search cases, issue, court, state..." />
-    <div class="search-help">
+    <!-- <div class="search-help">
       Use <b>,</b> for OR (e.g. roberts, court of appeals) and <b>+</b> for AND (e.g. roberts+court of appeals)
+    </div> -->
+ TIMELINES
+      <button id="timelineOverallBtn">Overall</button>
+      <button id="timelineIssueBtn">Issue Areas Over Time</button>
+      <button id="timelineCourtBtn">Lower Courts Over Time</button>
     </div>
-Search 2 - use to highlight
+  </br>
+          <button id="releaseBtn">Reset</button><br>
+  </br>
+
+SEARCH
     <input id="highlightSearchInput" class="search-input" type="text" placeholder="Highlight matching cases..." />
 
     <div class="search-help">
     </div>
-          <button id="releaseBtn">Reset back to a cloud</button><br>
-TODO:<br> add docket links<br>fix flashing dots at edges<br> get new colors<br>figure out mobile
-  </div>
+
   <div class="chart-scroll" id="chartScroll">
     <svg id="chart"></svg>
   </div>
@@ -484,8 +502,11 @@ TODO:<br> add docket links<br>fix flashing dots at edges<br> get new colors<br>f
               : d => "All cases";
 
         const grouped = d3.group(dots, groupAccessor);
-        const groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
+let groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
 
+if (clusterMode === "search") {
+  groupNames = d3.shuffle(groupNames);
+}
         const xMin = chartLeft() + 220;
         const xMax = chartRight();
 
@@ -605,9 +626,8 @@ TODO:<br> add docket links<br>fix flashing dots at edges<br> get new colors<br>f
     }
 
     function getEstimatedClusterRadius(count) {
-      return CLUSTER_SPACING * Math.sqrt(Math.max(1, count - 1)) + CLUSTER_RADIUS_PADDING;
-    }
-
+  return getCurrentClusterSpacing() * Math.sqrt(Math.max(1, count - 1)) + CLUSTER_RADIUS_PADDING;
+}
     function flowAngle(x, y, t, o1, o2) {
       return (
         Math.sin((x * FIELD_SCALE) + t + o1) +
@@ -1392,6 +1412,10 @@ TODO:<br> add docket links<br>fix flashing dots at edges<br> get new colors<br>f
       });
 
       if (autoNodes.length) {
+ if (clusterMode === "court") {
+    autoNodes.sort((a, b) => d3.descending(a.count, b.count));
+  }
+
         d3.packSiblings(autoNodes);
 
         let minX = d3.min(autoNodes, d => d.x - d.r);
@@ -1438,6 +1462,7 @@ TODO:<br> add docket links<br>fix flashing dots at edges<br> get new colors<br>f
           const radius = getCurrentClusterSpacing() * Math.sqrt(j);
           d.targetX = node.x + Math.cos(angle) * radius;
           d.targetY = node.y + Math.sin(angle) * radius;
+          d.clusterDelay = Math.min(1, j / 80);
         });
       });
 
