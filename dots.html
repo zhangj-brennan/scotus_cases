@@ -266,7 +266,7 @@
   <div class="overlay-box">this is a test
     <h1>100 Years<br>12,775 Cases</h1>
     <p>
-      Supreme Court Cases 1925 - 2024
+      Supreme Court Cases <br>1925 - 2024 <br>SCDB data
     </p>
 
   
@@ -394,6 +394,7 @@ SEARCH
     const DATA_PATH = "SCDB_combined_100years.csv";
     const ISSUE_AREA_PATH = "issue_area.csv";
     const CASE_ORIGIN_TYPE_PATH = "case_origin_with_type.csv";
+    const ISSUE_PATH = "issue.csv";
 
     const MANUAL_CLUSTER_POSITIONS = {
       // "Criminal Procedure": { x: 0.25, y: 0.30 },
@@ -424,6 +425,7 @@ SEARCH
 
     let issueAreaLookup = new Map();
     let caseOriginCourtTypeLookup = new Map();
+    let issueLookup = new Map();
 
     let releaseMode = false;
     let releaseEndTime = 0;
@@ -506,6 +508,13 @@ let groupNames = Array.from(grouped.keys()).filter(Boolean).sort(d3.ascending);
 
 if (clusterMode === "search") {
   groupNames = d3.shuffle(groupNames);
+  groupDots.forEach(d => {
+  const j = d.stableSearchSlot;
+  const angle = j * 2.399963229728653;
+  const radius = getCurrentClusterSpacing() * Math.sqrt(j);
+  d.targetX = cx + Math.cos(angle) * radius;
+  d.targetY = cy + Math.sin(angle) * radius;
+});
 }
         const xMin = chartLeft() + 220;
         const xMax = chartRight();
@@ -641,8 +650,8 @@ if (clusterMode === "search") {
         <div class="case-name">${d.caseName || ""}</div>
         <div><span class="label">Chief:</span> ${d.chief || ""}</div>
         <div><span class="label">Docket:</span> ${d.docket || ""}</div>
-        <div><span class="label">Issue:</span> ${d.issue || ""}</div>
-        <div><span class="label">Issue Area:</span> ${d.issueAreaLabel || d.issueArea || ""}</div>
+<div><span class="label">Issue:</span> ${d.issueLabel || d.issue || ""}</div>       
+ <div><span class="label">Issue Area:</span> ${d.issueAreaLabel || d.issueArea || ""}</div>
         <div><span class="label">Case Origin:</span> ${d.caseOrigin || ""}</div>
         <div><span class="label">Court Type:</span> ${d.courtTypeLabel || ""}</div>
         <div><span class="label">Case Origin State:</span> ${d.caseOriginState || ""}</div>
@@ -798,7 +807,17 @@ if (clusterMode === "search") {
         }
       });
     }
+function buildIssueLookup(rows) {
+  issueLookup = new Map();
 
+  rows.forEach(row => {
+    const code = normalizeCode(row.issue_code);
+    const label = normalizeLabel(row.issue);
+    if (code !== "") {
+      issueLookup.set(code, label);
+    }
+  });
+}
     function buildCaseOriginCourtTypeLookup(rows) {
       caseOriginCourtTypeLookup = new Map();
 
@@ -822,6 +841,11 @@ if (clusterMode === "search") {
       if (normalized === "") return "Unknown";
       return caseOriginCourtTypeLookup.get(normalized) || "Unknown";
     }
+    function getIssueLabelFromCode(code) {
+  const normalized = normalizeCode(code);
+  if (normalized === "") return "Unknown";
+  return issueLookup.get(normalized) || normalized;
+}
 
     function parseNumberMaybe(v) {
       const n = +v;
@@ -1602,24 +1626,29 @@ if (clusterMode === "search") {
     }
 
     Promise.all([
-      d3.csv(DATA_PATH),
-      d3.csv(ISSUE_AREA_PATH),
-      d3.csv(CASE_ORIGIN_TYPE_PATH)
-    ]).then(([rawData, issueAreaRows, caseOriginTypeRows]) => {
+  d3.csv(DATA_PATH),
+  d3.csv(ISSUE_AREA_PATH),
+  d3.csv(CASE_ORIGIN_TYPE_PATH),
+  d3.csv(ISSUE_PATH)
+]).then(([rawData, issueAreaRows, caseOriginTypeRows, issueRows]) => {
       buildIssueAreaLookup(issueAreaRows);
       buildCaseOriginCourtTypeLookup(caseOriginTypeRows);
+      buildIssueLookup(issueRows);
 
       dots = rawData.map((d, i) => {
         const issueAreaLabel = getIssueAreaLabelFromCode(d.issueArea);
         const courtTypeLabel = getCourtTypeFromCaseOriginCode(d.caseOrigin);
+      const issueLabel = getIssueLabelFromCode(d.issue);
 
         const searchText = [
           d.caseName,
           d.chief,
           d.docket,
           d.issue,
+          issueLabel,
           issueAreaLabel,
           courtTypeLabel,
+          issueLabel,
           d.caseOrigin,
           d.caseOriginState
         ].filter(Boolean).join(" ");
@@ -1631,7 +1660,9 @@ if (clusterMode === "search") {
         return {
           ...d,
           id: i,
+          stableSearchSlot: i,
           issueAreaLabel,
+          issueLabel,
           issueAreaGroup: issueAreaLabel,
           courtTypeLabel,
           courtTypeGroup: courtTypeLabel,
