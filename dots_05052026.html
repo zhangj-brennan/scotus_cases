@@ -432,7 +432,6 @@ SEARCH
     let releaseEndTime = 0;
     let searchTerm = "";
     let highlightSearchTerm = "";
-    let isRestoringUrlState = false;
 
     function applyPreferredOrder(items, preferredOrder) {
       const itemSet = new Set(items);
@@ -785,35 +784,6 @@ if (clusterMode === "search") {
       return String(value == null ? "" : value).trim();
     }
 
-    function normalizeStateCode(value) {
-      const raw = normalizeCode(value);
-      if (raw === "" || raw === "0" || raw.toUpperCase() === "NA") return "";
-      const noDecimal = raw.replace(/\.0+$/, "");
-      const numeric = +noDecimal;
-      if (Number.isFinite(numeric)) return String(numeric);
-      return noDecimal.replace(/^0+/, "") || noDecimal;
-    }
-
-    function firstNonEmptyValue(row, keys) {
-      for (const key of keys) {
-        if (row && Object.prototype.hasOwnProperty.call(row, key)) {
-          const value = normalizeCode(row[key]);
-          if (value !== "") return value;
-        }
-      }
-      return "";
-    }
-
-    function getCaseOriginStateCode(d) {
-      return firstNonEmptyValue(d, [
-        "case_origin_state_code",
-        "caseOriginState",
-        "caseOriginStateCode",
-        "case_origin_state",
-        "caseOriginState_code"
-      ]);
-    }
-
     function normalizeLabel(value, fallback = "Unknown") {
       const v = String(value == null ? "" : value).trim();
       return v === "" ? fallback : v;
@@ -830,25 +800,9 @@ function buildOriginStateLookup(rows) {
   originStateLookup = new Map();
 
   rows.forEach(row => {
-    const code = normalizeStateCode(firstNonEmptyValue(row, [
-      "case_origin_state_code",
-      "caseOriginState",
-      "caseOriginStateCode",
-      "state_code",
-      "stateCode",
-      "code"
-    ]));
-
-    const label = firstNonEmptyValue(row, [
-      "state_name",
-      "stateName",
-      "state",
-      "case_origin_state",
-      "caseOriginStateName",
-      "name"
-    ]);
-
-    if (code !== "" && label !== "") {
+    const code = normalizeCode(row.case_origin_state_code);
+    const label = normalizeLabel(row.state_name);
+    if (code !== "") {
       originStateLookup.set(code, label);
     }
   });
@@ -904,7 +858,7 @@ function buildIssueLookup(rows) {
   return issueLookup.get(normalized) || normalized;
 }
 function getStateNameFromCode(code) {
-  const normalized = normalizeStateCode(code);
+  const normalized = normalizeCode(code);
   if (normalized === "") return "NA";
   return originStateLookup.get(normalized) || "NA";
 }
@@ -1581,7 +1535,6 @@ function getStateNameFromCode(code) {
       });
       hideTooltip();
       updateCircleStyles();
-      updateUrlState();
     }
 
     function disableClusterMode() {
@@ -1593,7 +1546,6 @@ function getStateNameFromCode(code) {
       clearTimelineGuides();
       updateClusterLabelVisibility();
       updateCircleStyles();
-      updateUrlState();
     }
 
     function startRelease() {
@@ -1644,8 +1596,6 @@ function getStateNameFromCode(code) {
       if (!isUserHovering && !pinnedDatum) {
         scheduleNextAutoPopup(1000);
       }
-
-      updateUrlState();
     }
 
     function applySearchCluster() {
@@ -1674,8 +1624,6 @@ function getStateNameFromCode(code) {
           scheduleNextAutoPopup(500);
         }
       }
-
-      updateUrlState();
     }
 
     function applyHighlightSearch() {
@@ -1690,66 +1638,6 @@ function getStateNameFromCode(code) {
       });
 
       updateCircleStyles();
-      updateUrlState();
-    }
-
-
-    function updateUrlState() {
-      if (isRestoringUrlState) return;
-
-      const params = new URLSearchParams(window.location.search);
-      const layoutValue = clusterMode || "";
-      const searchValue = searchInput.value.trim();
-      const highlightValue = highlightSearchInput.value.trim();
-
-      if (layoutValue) {
-        params.set("layout", layoutValue);
-      } else {
-        params.delete("layout");
-      }
-
-      if (searchValue) {
-        params.set("search", searchValue);
-      } else {
-        params.delete("search");
-      }
-
-      if (highlightValue) {
-        params.set("highlight", highlightValue);
-      } else {
-        params.delete("highlight");
-      }
-
-      const queryString = params.toString();
-      const newUrl = `${window.location.pathname}${queryString ? `?${queryString}` : ""}${window.location.hash}`;
-      window.history.replaceState(null, "", newUrl);
-    }
-
-    function restoreUrlState() {
-      const params = new URLSearchParams(window.location.search);
-      const layoutValue = params.get("layout") || "";
-      const searchValue = params.get("search") || "";
-      const highlightValue = params.get("highlight") || "";
-
-      isRestoringUrlState = true;
-
-      searchInput.value = searchValue;
-      highlightSearchInput.value = highlightValue;
-
-      if (highlightValue) {
-        applyHighlightSearch();
-      }
-
-      if (layoutValue === "search" && searchValue) {
-        applySearchCluster();
-      } else if (["issue", "court", "timelineIssue", "timelineCourt", "timelineOverall", "matrixCourtIssue"].includes(layoutValue)) {
-        enableClusterMode(layoutValue);
-      } else if (searchValue) {
-        applySearchCluster();
-      }
-
-      isRestoringUrlState = false;
-      updateUrlState();
     }
 
   Promise.all([
@@ -1767,7 +1655,7 @@ function getStateNameFromCode(code) {
         const issueAreaLabel = getIssueAreaLabelFromCode(d.issueArea);
         const courtTypeLabel = getCourtTypeFromCaseOriginCode(d.caseOrigin);
       const issueLabel = getIssueLabelFromCode(d.issue);
-    const stateName = getStateNameFromCode(getCaseOriginStateCode(d));
+    const stateName = getStateNameFromCode(d.case_origin_state_code);
         const searchText = [
           d.caseName,
           d.chief,
@@ -1965,7 +1853,6 @@ function getStateNameFromCode(code) {
       }
 
       updateCircleStyles();
-      restoreUrlState();
       d3.timer(tick);
       scheduleNextAutoPopup(1000);
     }).catch(error => {
