@@ -800,10 +800,27 @@ function buildOriginStateLookup(rows) {
   originStateLookup = new Map();
 
   rows.forEach(row => {
-    const code = normalizeCode(row.case_origin_state_code);
-    const label = normalizeLabel(row.state_name);
-    if (code !== "") {
+    const code = normalizeCode(
+      row.case_origin_state_code ??
+      row.caseOriginState ??
+      row.case_origin_state ??
+      row.origin_state_code ??
+      row.state_code ??
+      row.code
+    );
+
+    const label = normalizeLabel(
+      row.state_name ??
+      row.state ??
+      row.case_origin_state_name ??
+      row.caseOriginStateName ??
+      row.name,
+      "NA"
+    );
+
+    if (code !== "" && code !== "0") {
       originStateLookup.set(code, label);
+      originStateLookup.set(code.replace(/^0+/, ""), label);
     }
   });
 }
@@ -859,8 +876,8 @@ function buildIssueLookup(rows) {
 }
 function getStateNameFromCode(code) {
   const normalized = normalizeCode(code);
-  if (normalized === "") return "NA";
-  return originStateLookup.get(normalized) || "NA";
+  if (normalized === "" || normalized === "0") return "NA";
+  return originStateLookup.get(normalized) || originStateLookup.get(normalized.replace(/^0+/, "")) || "NA";
 }
     function parseNumberMaybe(v) {
       const n = +v;
@@ -1655,7 +1672,12 @@ function getStateNameFromCode(code) {
         const issueAreaLabel = getIssueAreaLabelFromCode(d.issueArea);
         const courtTypeLabel = getCourtTypeFromCaseOriginCode(d.caseOrigin);
       const issueLabel = getIssueLabelFromCode(d.issue);
-    const stateName = getStateNameFromCode(d.case_origin_state_code);
+    const stateName = getStateNameFromCode(
+          d.case_origin_state_code ??
+          d.caseOriginState ??
+          d.case_origin_state ??
+          d.caseOriginStateCode
+        );
         const searchText = [
           d.caseName,
           d.chief,
